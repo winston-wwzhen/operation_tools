@@ -1,0 +1,10 @@
+{
+  "llmApiKey": "93e822837077402f82dfd16618bd93f5.vfdLZ0c5vCHycJya",
+  "llmBaseUrl": "https://open.bigmodel.cn/api/paas/v4/",
+  "llmModel": "glm-4",
+  "wechatAppId": "",
+  "wechatSecret": "",
+  "topicLimit": 10,
+  "scheduleCron": "0 */2 * * *",
+  "autoRun": false
+}

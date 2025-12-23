@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+playwright
+apscheduler
+httpx
+beautifulsoup4
+openai>=1.0.0
+pydantic
+jinja2

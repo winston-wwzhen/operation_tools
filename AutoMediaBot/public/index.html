@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AutoMediaBot - 全网热点聚合 & AI 创作</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -13,144 +13,146 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
-        body { background-color: #f3f4f6; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+        body { background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; -webkit-tap-highlight-color: transparent; }
         .topic-card { transition: all 0.3s ease; border-left: 4px solid transparent; }
-        .topic-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .topic-card:active { transform: scale(0.98); } /* 手机端点击反馈 */
+        @media (min-width: 640px) {
+            .topic-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        }
 
         /* 平台标签颜色 */
-        .source-tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
-        .source-weibo { background-color: #ffe4e6; color: #e11d48; } /* 微博红 */
-        .source-baidu { background-color: #dbeafe; color: #2563eb; } /* 百度蓝 */
-        .source-zhihu { background-color: #e0f2fe; color: #0284c7; } /* 知乎蓝 */
-        .source-douyin { background-color: #f3e8ff; color: #9333ea; } /* 抖音紫 */
-        .source-xiaohongshu { background-color: #fce7f3; color: #db2777; } /* 小红书粉 */
-        .source-toutiao { background-color: #fee2e2; color: #dc2626; } /* 头条红 */
+        .source-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+        .source-weibo { background-color: #ffe4e6; color: #e11d48; }
+        .source-baidu { background-color: #dbeafe; color: #2563eb; }
+        .source-zhihu { background-color: #e0f2fe; color: #0284c7; }
+        .source-douyin { background-color: #f3e8ff; color: #9333ea; }
+        .source-xiaohongshu { background-color: #fce7f3; color: #db2777; }
+        .source-toutiao { background-color: #fee2e2; color: #dc2626; }
 
-        /* 评论样式 */
         .topic-comment {
             background-color: #f9fafb;
             border-left: 3px solid #6366f1;
-            padding: 8px 12px;
-            margin-top: 10px;
-            font-size: 0.9rem;
+            padding: 8px 10px;
+            margin-top: 8px;
+            font-size: 0.85rem;
             color: #4b5563;
             font-style: italic;
             border-radius: 0 4px 4px 0;
+            line-height: 1.4;
         }
 
         .log-container {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            font-size: 0.85rem;
-            line-height: 1.5;
+            font-size: 0.75rem;
+            line-height: 1.4;
         }
 
-        /* Markdown 内容样式微调 */
-        .prose h1 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; }
-        .prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #374151; }
-        .prose p { margin-bottom: 0.8em; line-height: 1.6; }
-        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
-        .prose strong { color: #111827; font-weight: 600; }
-        .prose blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; font-style: italic; }
+        /* Markdown 样式适配 */
+        .prose { font-size: 0.95rem; line-height: 1.6; color: #374151; }
+        .prose h1 { font-size: 1.4em; font-weight: bold; margin-bottom: 0.5em; line-height: 1.2; }
+        .prose h2 { font-size: 1.2em; font-weight: bold; margin-top: 1.2em; margin-bottom: 0.5em; color: #1f2937; }
+        .prose p { margin-bottom: 0.8em; }
+        .prose ul { list-style-type: disc; padding-left: 1.2em; margin-bottom: 0.8em; }
+        .prose li { margin-bottom: 0.2em; }
+        .prose blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; font-style: italic; margin: 1em 0; }
+        .prose strong { color: #111827; font-weight: 700; }
 
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
     </style>
 </head>
 <body>
     <div id="app" class="min-h-screen flex flex-col">
-        <header class="bg-white shadow-sm sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <el-icon class="text-indigo-600 text-2xl"><Data-Analysis /></el-icon>
-                    <h1 class="text-xl font-bold text-gray-900">AutoMediaBot <span class="text-xs font-normal text-gray-500 ml-2">Pro</span></h1>
+        <header class="bg-white shadow-sm sticky top-0 z-50 transition-shadow duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+                <div class="flex items-center space-x-2 sm:space-x-3 cursor-pointer" @click="scrollToTop">
+                    <el-icon class="text-indigo-600 text-xl sm:text-2xl"><Data-Analysis /></el-icon>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate max-w-[150px] sm:max-w-none">
+                        AutoMediaBot <span class="hidden sm:inline text-xs font-normal text-gray-500 ml-2">Pro</span>
+                    </h1>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500 hidden sm:inline-block">
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <span class="text-xs text-gray-500 hidden md:inline-block">
                         <span v-if="state.isRunning" class="text-green-600 flex items-center">
                             <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75 mr-1"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500 mr-2"></span>
-                            任务运行中
+                            运行中
                         </span>
                         <span v-else class="flex items-center">
                             <span class="h-2 w-2 rounded-full bg-gray-400 mr-2"></span>
                             空闲
                         </span>
                     </span>
-                    <el-tooltip content="立即刷新全网热点" placement="bottom">
-                        <el-button type="primary" :loading="state.isRunning" @click="refreshTopics" circle>
-                            <el-icon><Refresh /></el-icon>
-                        </el-button>
-                    </el-tooltip>
-                    <el-tooltip content="查看系统日志" placement="bottom">
-                        <el-button @click="showLogDrawer = true" circle>
-                            <el-icon><Document /></el-icon>
-                        </el-button>
-                    </el-tooltip>
+                    <el-button type="primary" :loading="state.isRunning" @click="refreshTopics" circle size="default">
+                        <el-icon><Refresh /></el-icon>
+                    </el-button>
+                    <el-button @click="showLogDrawer = true" circle size="default">
+                        <el-icon><Document /></el-icon>
+                    </el-button>
                 </div>
             </div>
         </header>
 
-        <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col lg:flex-row gap-6">
+        <main class="flex-grow max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 w-full flex flex-col lg:flex-row gap-4 sm:gap-6">
 
-            <section class="flex-grow lg:w-2/3">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-medium text-gray-900 flex items-center">
-                        <el-icon class="mr-2 text-red-500"><Trophy /></el-icon>
-                        全网热点聚合
-                        <span class="ml-2 text-xs text-gray-400 font-normal" v-if="state.hot_topics.length">
-                            (共 {{ state.hot_topics.length }} 条)
+            <section class="flex-grow lg:w-2/3 order-1">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h2 class="text-base sm:text-lg font-medium text-gray-900 flex items-center">
+                        <el-icon class="mr-1.5 text-red-500"><Trophy /></el-icon>
+                        热点聚合
+                        <span class="ml-2 text-xs text-gray-400 font-normal bg-gray-100 px-2 py-0.5 rounded-full" v-if="state.hot_topics.length">
+                            {{ state.hot_topics.length }}
                         </span>
                     </h2>
-                    <span class="text-xs text-gray-400 hidden sm:inline">更新时间: {{ state.lastRunTime || '无' }}</span>
+                    <span class="text-xs text-gray-400 scale-90 origin-right sm:scale-100">{{ state.lastRunTime ? state.lastRunTime.split(' ')[1] + ' 更新' : '' }}</span>
                 </div>
 
                 <div v-if="loading" class="py-12 text-center text-gray-400">
                     <el-icon class="is-loading text-3xl mb-2"><Loading /></el-icon>
-                    <p>正在加载数据...</p>
+                    <p class="text-sm">数据加载中...</p>
                 </div>
 
-                <div v-else-if="state.hot_topics.length === 0" class="bg-white rounded-lg shadow-sm p-12 text-center">
-                    <el-empty description="暂无热点数据，请点击右上角刷新按钮"></el-empty>
+                <div v-else-if="state.hot_topics.length === 0" class="bg-white rounded-lg shadow-sm p-8 text-center">
+                    <el-empty description="暂无数据，请点击刷新" :image-size="80"></el-empty>
                 </div>
 
-                <div v-else class="space-y-4">
+                <div v-else class="space-y-3 sm:space-y-4">
                     <div v-for="(topic, index) in state.hot_topics" :key="index"
-                         class="topic-card bg-white rounded-lg shadow-sm p-5 border-l-4"
+                         class="topic-card bg-white rounded-lg shadow-sm p-3 sm:p-5 border-l-4 relative overflow-hidden"
                          :class="getHeatColorClass(topic.heat)">
 
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
-                            <div class="flex-grow">
-                                <div class="flex flex-wrap items-center gap-2 mb-1">
-                                    <span :class="getSourceClass(topic.source)" class="source-tag">
+                        <div class="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
+                            <div class="flex-grow min-w-0 w-full">
+                                <div class="flex items-start gap-2 mb-1">
+                                    <span :class="getSourceClass(topic.source)" class="source-tag mt-0.5 shrink-0">
                                         {{ topic.source }}
                                     </span>
-                                    <h3 class="text-lg font-bold text-gray-800 hover:text-indigo-600 cursor-pointer"
+                                    <h3 class="text-base sm:text-lg font-bold text-gray-800 leading-snug cursor-pointer active:text-indigo-600 sm:hover:text-indigo-600 line-clamp-2"
                                         @click="openLink(topic.link)">
                                         {{ topic.title }}
                                     </h3>
                                 </div>
 
-                                <div class="flex flex-wrap gap-2 mt-2" v-if="topic.tags && topic.tags.length">
+                                <div class="flex flex-wrap gap-1.5 mt-2 px-1" v-if="topic.tags && topic.tags.length">
                                     <span v-for="tag in topic.tags" :key="tag"
-                                          class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                          class="text-[10px] sm:text-xs text-gray-500 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded">
                                         #{{ tag }}
                                     </span>
                                 </div>
 
                                 <div v-if="topic.comment" class="topic-comment">
-                                    <span class="font-bold text-indigo-400 mr-1">AI 点评:</span>
+                                    <span class="font-bold text-indigo-500 mr-1 text-xs">AI:</span>
                                     {{ topic.comment }}
                                 </div>
                             </div>
 
-                            <div class="flex sm:flex-col items-end gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-start">
-                                <div class="text-left sm:text-center w-auto sm:w-16">
-                                    <div class="text-xl font-black text-gray-700">{{ topic.heat }}</div>
-                                    <div class="text-xs text-gray-400">热度</div>
+                            <div class="flex sm:flex-col items-center justify-between sm:justify-start w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50 sm:border-none gap-2">
+                                <div class="flex items-center sm:block text-left sm:text-center">
+                                    <span class="text-xs text-gray-400 mr-1 sm:mr-0 sm:block">热度</span>
+                                    <span class="text-sm sm:text-xl font-black text-gray-700 font-mono">{{ topic.heat }}</span>
                                 </div>
-                                <el-button type="primary" plain @click="openGenerateDialog(topic)">
+                                <el-button type="primary" size="small" plain class="!px-4 !h-8" @click="openGenerateDialog(topic)">
                                     <el-icon class="mr-1"><Edit /></el-icon> 生成
                                 </el-button>
                             </div>
@@ -159,96 +161,131 @@
                 </div>
             </section>
 
-            <aside class="lg:w-1/3 flex flex-col gap-6">
-                <div class="bg-white rounded-lg shadow-sm p-4 flex flex-col h-[600px]">
-                    <h3 class="text-md font-medium text-gray-900 mb-3 flex items-center justify-between">
+            <aside id="preview-section" class="lg:w-1/3 order-2 flex flex-col gap-4 sm:gap-6">
+                <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 flex flex-col h-[500px] sm:h-[600px] transition-all duration-500" :class="{'ring-2 ring-indigo-500': justGenerated}">
+                    <h3 class="text-sm sm:text-md font-medium text-gray-900 mb-2 sm:mb-3 flex items-center justify-between">
                         <span class="flex items-center">
-                            <el-icon class="mr-2 text-indigo-600"><Edit-Pen /></el-icon>
+                            <el-icon class="mr-1.5 text-indigo-600"><Edit-Pen /></el-icon>
                             文案预览
                         </span>
-                        <el-tag v-if="generatedContent" size="small" type="success">生成完成</el-tag>
+                        <el-tag v-if="generatedContent" size="small" type="success" effect="dark">完成</el-tag>
                     </h3>
 
-                    <div v-if="generatedContent" class="flex-grow overflow-y-auto bg-gray-50 p-4 rounded border border-gray-200">
-                        <div v-html="parsedContent" class="prose prose-sm max-w-none"></div>
+                    <div v-if="generatedContent" class="flex-grow overflow-y-auto bg-gray-50 p-3 sm:p-4 rounded border border-gray-200">
+                        <div v-html="parsedContent" class="prose prose-sm max-w-none break-words"></div>
                     </div>
 
                     <div v-else class="flex-grow flex items-center justify-center text-gray-400 bg-gray-50 rounded border border-dashed border-gray-300">
                         <div class="text-center p-4">
-                            <el-icon class="text-4xl mb-3 text-gray-300"><Magic-Stick /></el-icon>
-                            <p class="text-sm">点击左侧列表的 "生成" 按钮<br>AI 将为您撰写多平台爆款文案</p>
+                            <el-icon class="text-3xl sm:text-4xl mb-2 sm:mb-3 text-gray-300"><Magic-Stick /></el-icon>
+                            <p class="text-xs sm:text-sm">点击左侧 "生成" 按钮<br>AI 将为您撰写爆款文案</p>
                         </div>
                     </div>
 
                     <div class="mt-3 flex justify-end gap-2" v-if="generatedContent">
-                        <el-button size="small" @click="copyContent">复制全文</el-button>
-                        <el-button size="small" type="danger" plain @click="generatedContent = ''">清空</el-button>
+                        <el-button size="small" @click="copyContent" class="flex-1 sm:flex-none">复制全文</el-button>
+                        <el-button size="small" type="danger" plain @click="clearContent" class="flex-1 sm:flex-none">清空</el-button>
                     </div>
                 </div>
 
-                <div class="bg-gray-900 rounded-lg shadow-sm p-4 text-gray-300 h-64 overflow-hidden flex flex-col">
+                <div class="bg-gray-900 rounded-lg shadow-sm p-3 sm:p-4 text-gray-300 h-48 sm:h-64 overflow-hidden flex flex-col">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">System Logs</h3>
-                        <span class="h-2 w-2 rounded-full" :class="state.isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-600'"></span>
+                        <span class="h-1.5 w-1.5 rounded-full" :class="state.isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-600'"></span>
                     </div>
-                    <div class="flex-grow overflow-y-auto log-container space-y-1" ref="logContainer">
-                        <div v-for="log in state.logs" :key="log.id" class="break-words">
-                            <span class="text-gray-500">[{{ log.time }}]</span>
-                            <span :class="getLogLevelClass(log.level)" class="ml-1 font-bold">{{ log.level.toUpperCase() }}:</span>
-                            <span class="ml-1">{{ log.message }}</span>
+                    <div class="flex-grow overflow-y-auto log-container space-y-1 scroll-smooth" ref="logContainer">
+                        <div v-for="log in state.logs" :key="log.id" class="break-all">
+                            <span class="text-gray-500 opacity-70">[{{ log.time }}]</span>
+                            <span :class="getLogLevelClass(log.level)" class="ml-1 font-bold text-[10px]">{{ log.level.toUpperCase() }}</span>
+                            <span class="ml-1 opacity-90">{{ log.message }}</span>
                         </div>
                     </div>
                 </div>
             </aside>
         </main>
 
-        <el-drawer v-model="showLogDrawer" title="系统运行日志" size="50%">
-            <div class="h-full overflow-y-auto bg-gray-50 p-4 font-mono text-sm">
-                <div v-for="log in state.logs" :key="log.id" class="mb-1 pb-1 border-b border-gray-100 last:border-0">
+        <el-drawer v-model="showLogDrawer" title="系统日志" :size="drawerSize" direction="rtl">
+            <div class="h-full overflow-y-auto bg-gray-50 p-3 sm:p-4 font-mono text-xs sm:text-sm">
+                <div v-for="log in state.logs" :key="log.id" class="mb-1.5 pb-1.5 border-b border-gray-100 last:border-0 break-words">
                     <span class="text-gray-400">[{{ log.time }}]</span>
-                    <span :class="getLogLevelClass(log.level)" class="mx-2 font-bold">[{{ log.level.toUpperCase() }}]</span>
+                    <span :class="getLogLevelClass(log.level)" class="mx-1 font-bold">[{{ log.level.toUpperCase() }}]</span>
                     <span class="text-gray-700">{{ log.message }}</span>
                 </div>
             </div>
         </el-drawer>
 
-        <el-dialog v-model="showGenerateDialog" title="🤖 AI 文案生成设置" width="90%" class="sm:max-w-md">
-            <div v-if="selectedTopic" class="mb-6">
-                <p class="text-xs text-gray-500 mb-1">当前热点</p>
-                <div class="bg-gray-50 p-3 rounded text-sm font-medium text-gray-800 border-l-4 border-indigo-500">
+        <el-dialog v-model="showGenerateDialog" title="AI 创作设置" :width="dialogWidth" align-center class="rounded-lg">
+            <div v-if="selectedTopic" class="mb-4 sm:mb-6">
+                <p class="text-xs text-gray-500 mb-1">当前选定热点</p>
+                <div class="bg-gray-50 p-2.5 sm:p-3 rounded text-sm font-medium text-gray-800 border-l-4 border-indigo-500 line-clamp-2">
                     {{ selectedTopic.title }}
                 </div>
             </div>
 
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">选择目标平台风格</label>
-                <el-radio-group v-model="selectedPlatform" class="w-full grid grid-cols-1 gap-2">
-                    <el-radio label="wechat" border class="!ml-0 !mr-0 w-full">
-                        <span class="font-bold">微信公众号</span>
-                        <span class="text-xs text-gray-400 ml-1">- 深度长文/HTML排版</span>
-                    </el-radio>
-                    <el-radio label="xiaohongshu" border class="!ml-0 !mr-0 w-full">
-                        <span class="font-bold">小红书</span>
-                        <span class="text-xs text-gray-400 ml-1">- Emoji/种草/标签</span>
-                    </el-radio>
-                    <el-radio label="zhihu" border class="!ml-0 !mr-0 w-full">
-                        <span class="font-bold">知乎</span>
-                        <span class="text-xs text-gray-400 ml-1">- 专业/Markdown/理性</span>
-                    </el-radio>
-                    <el-radio label="toutiao" border class="!ml-0 !mr-0 w-full">
-                        <span class="font-bold">今日头条</span>
-                        <span class="text-xs text-gray-400 ml-1">- 爆款标题/叙事强</span>
-                    </el-radio>
-                </el-radio-group>
+            <div class="mb-4 sm:mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">目标平台风格</label>
+                <div class="grid grid-cols-1 gap-2 sm:gap-3">
+                    <div @click="selectedPlatform = 'wechat'"
+                         class="border rounded-lg p-3 cursor-pointer transition-colors flex items-center justify-between"
+                         :class="selectedPlatform === 'wechat' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'">
+                        <div class="flex items-center">
+                            <span class="text-xl mr-2">📝</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">微信公众号</div>
+                                <div class="text-xs text-gray-500">深度长文 / HTML排版</div>
+                            </div>
+                        </div>
+                        <el-radio v-model="selectedPlatform" label="wechat" class="!mr-0"></el-radio>
+                    </div>
+
+                    <div @click="selectedPlatform = 'xiaohongshu'"
+                         class="border rounded-lg p-3 cursor-pointer transition-colors flex items-center justify-between"
+                         :class="selectedPlatform === 'xiaohongshu' ? 'border-pink-500 bg-pink-50' : 'border-gray-200 hover:bg-gray-50'">
+                        <div class="flex items-center">
+                            <span class="text-xl mr-2">✨</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">小红书</div>
+                                <div class="text-xs text-gray-500">Emoji / 种草 / 标签</div>
+                            </div>
+                        </div>
+                        <el-radio v-model="selectedPlatform" label="xiaohongshu" class="!mr-0"></el-radio>
+                    </div>
+
+                    <div @click="selectedPlatform = 'zhihu'"
+                         class="border rounded-lg p-3 cursor-pointer transition-colors flex items-center justify-between"
+                         :class="selectedPlatform === 'zhihu' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'">
+                        <div class="flex items-center">
+                            <span class="text-xl mr-2">🎓</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">知乎</div>
+                                <div class="text-xs text-gray-500">理性客观 / Markdown</div>
+                            </div>
+                        </div>
+                        <el-radio v-model="selectedPlatform" label="zhihu" class="!mr-0"></el-radio>
+                    </div>
+
+                    <div @click="selectedPlatform = 'toutiao'"
+                         class="border rounded-lg p-3 cursor-pointer transition-colors flex items-center justify-between"
+                         :class="selectedPlatform === 'toutiao' ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:bg-gray-50'">
+                        <div class="flex items-center">
+                            <span class="text-xl mr-2">🔥</span>
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">今日头条</div>
+                                <div class="text-xs text-gray-500">爆款标题 / 叙事强</div>
+                            </div>
+                        </div>
+                        <el-radio v-model="selectedPlatform" label="toutiao" class="!mr-0"></el-radio>
+                    </div>
+                </div>
             </div>
 
             <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showGenerateDialog = false">取消</el-button>
-                    <el-button type="primary" @click="confirmGenerate" :loading="isGenerating">
+                <div class="flex gap-2">
+                    <el-button @click="showGenerateDialog = false" class="flex-1">取消</el-button>
+                    <el-button type="primary" @click="confirmGenerate" :loading="isGenerating" class="flex-1 font-bold">
                         开始创作
                     </el-button>
-                </span>
+                </div>
             </template>
         </el-dialog>
     </div>
@@ -262,12 +299,16 @@
                 const showLogDrawer = ref(false);
                 const showGenerateDialog = ref(false);
                 const isGenerating = ref(false);
+                const justGenerated = ref(false);
 
                 const generatedContent = ref('');
                 const selectedTopic = ref(null);
                 const selectedPlatform = ref('wechat');
 
                 const logContainer = ref(null);
+
+                // 响应式窗口宽度
+                const windowWidth = ref(window.innerWidth);
 
                 const state = reactive({
                     isRunning: false,
@@ -277,75 +318,84 @@
                     logs: []
                 });
 
-                // 计算属性：解析 Markdown 为 HTML
+                // 计算属性
                 const parsedContent = computed(() => {
                     if (!generatedContent.value) return '';
-                    // 配置 Marked.js
-                    // 如果后端返回的是纯 HTML (如公众号), marked 也会兼容
-                    try {
-                        return marked.parse(generatedContent.value);
-                    } catch (e) {
-                        return generatedContent.value;
-                    }
+                    try { return marked.parse(generatedContent.value); }
+                    catch (e) { return generatedContent.value; }
                 });
 
-                // 轮询状态
+                const drawerSize = computed(() => windowWidth.value < 768 ? '85%' : '40%');
+                const dialogWidth = computed(() => windowWidth.value < 640 ? '90%' : '500px');
+
+                // 监听窗口大小变化
+                window.addEventListener('resize', () => {
+                    windowWidth.value = window.innerWidth;
+                });
+
+                const scrollToTop = () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+
+                // API 调用
                 const fetchStatus = async () => {
                     try {
                         const res = await axios.get('/api/status');
                         const data = res.data;
-
                         state.isRunning = data.state.isRunning;
                         state.lastRunTime = data.state.lastRunTime;
                         state.nextRunTime = data.state.nextRunTime;
 
-                        // 简单比较，避免频繁重绘
-                        if (data.state.hot_topics && data.state.hot_topics.length !== state.hot_topics.length) {
-                            state.hot_topics = data.state.hot_topics;
-                        } else if (JSON.stringify(data.state.hot_topics) !== JSON.stringify(state.hot_topics)) {
-                            state.hot_topics = data.state.hot_topics;
+                        if (JSON.stringify(data.state.hot_topics) !== JSON.stringify(state.hot_topics)) {
+                            state.hot_topics = data.state.hot_topics || [];
                         }
-
                         if (data.state.logs) state.logs = data.state.logs;
-
-                    } catch (e) {
-                        console.error("Fetch status error:", e);
-                    }
+                    } catch (e) { console.error(e); }
                 };
 
                 const refreshTopics = async () => {
                     try {
                         await axios.post('/api/refresh-topics');
-                        ElementPlus.ElMessage.success('全网抓取任务已启动');
+                        ElementPlus.ElMessage.success('任务已提交');
                         fetchStatus();
                     } catch (e) {
-                        ElementPlus.ElMessage.error('任务启动失败');
+                        ElementPlus.ElMessage.error('启动失败');
                     }
                 };
 
-                // 打开生成对话框
                 const openGenerateDialog = (topic) => {
                     selectedTopic.value = topic;
                     showGenerateDialog.value = true;
-                    // 默认选择根据来源推荐，或者保持上次选择
-                    // 这里默认重置为 wechat
-                    if (!selectedPlatform.value) selectedPlatform.value = 'wechat';
+                    // 自动匹配平台推荐 (可选)
+                    if(topic.source.includes('小红书')) selectedPlatform.value = 'xiaohongshu';
+                    else if(topic.source.includes('知乎')) selectedPlatform.value = 'zhihu';
+                    else if(topic.source.includes('头条')) selectedPlatform.value = 'toutiao';
+                    else selectedPlatform.value = 'wechat'; // 默认
                 };
 
-                // 确认生成
                 const confirmGenerate = async () => {
                     if (!selectedTopic.value) return;
-
                     isGenerating.value = true;
+                    justGenerated.value = false;
                     generatedContent.value = '';
-
-                    // 提前关闭对话框，体验更好，或者不关闭显示loading均可
-                    showGenerateDialog.value = false;
+                    showGenerateDialog.value = false; // 手机端由于屏幕小，建议立即关闭弹窗显示 Loading
 
                     const loadingInstance = ElementPlus.ElLoading.service({
-                        target: '.bg-white.rounded-lg.shadow-sm.p-4', // 覆盖在右侧预览区
-                        text: `AI 正在撰写 [${selectedPlatform.value}] 风格文案，请稍候...`
+                        target: '#preview-section', // Loading 覆盖预览区
+                        text: `AI 正在撰写 [${selectedPlatform.value}] 文案...`,
+                        background: 'rgba(255, 255, 255, 0.9)'
                     });
+
+                    // 手机端滚动到预览区
+                    if (windowWidth.value < 1024) {
+                        nextTick(() => {
+                             const el = document.getElementById('preview-section');
+                             if(el) {
+                                 const y = el.getBoundingClientRect().top + window.scrollY - 80; // 减去header高度
+                                 window.scrollTo({top: y, behavior: 'smooth'});
+                             }
+                        });
+                    }
 
                     try {
                         const res = await axios.post('/api/generate-draft', {
@@ -355,9 +405,11 @@
 
                         if (res.data.success && res.data.content) {
                             generatedContent.value = res.data.content;
-                            ElementPlus.ElMessage.success('文案创作完成！');
+                            justGenerated.value = true;
+                            setTimeout(() => justGenerated.value = false, 2000);
+                            ElementPlus.ElMessage.success('创作完成！');
                         } else {
-                            ElementPlus.ElMessage.warning('生成内容为空，请检查 Key 或重试');
+                            ElementPlus.ElMessage.warning('生成内容为空');
                         }
                     } catch (e) {
                         ElementPlus.ElMessage.error('生成失败: ' + (e.message || '未知错误'));
@@ -367,21 +419,19 @@
                     }
                 };
 
-                const openLink = (url) => {
-                    if(url) window.open(url, '_blank');
-                };
+                const openLink = (url) => { if(url) window.open(url, '_blank'); };
 
                 const copyContent = () => {
-                    // 创建临时元素复制纯文本
-                    // 如果需要复制带格式的 (如公众号)，可能需要更复杂的逻辑，这里简化为复制文本
                     const el = document.createElement('textarea');
                     el.value = generatedContent.value;
                     document.body.appendChild(el);
                     el.select();
                     document.execCommand('copy');
                     document.body.removeChild(el);
-                    ElementPlus.ElMessage.success('原始内容已复制到剪贴板');
+                    ElementPlus.ElMessage.success('已复制');
                 };
+
+                const clearContent = () => { generatedContent.value = ''; };
 
                 // 样式辅助
                 const getHeatColorClass = (heat) => {
@@ -397,8 +447,8 @@
                     if (source.includes('百度')) return 'source-baidu';
                     if (source.includes('知乎')) return 'source-zhihu';
                     if (source.includes('抖音')) return 'source-douyin';
-                    if (source.includes('小红书')) return 'source-xiaohongshu'; // 新增
-                    if (source.includes('头条')) return 'source-toutiao'; // 新增
+                    if (source.includes('小红书')) return 'source-xiaohongshu';
+                    if (source.includes('头条')) return 'source-toutiao';
                     return 'bg-gray-100 text-gray-600';
                 };
 
@@ -413,9 +463,7 @@
 
                 watch(() => state.logs, () => {
                     nextTick(() => {
-                        if (logContainer.value) {
-                            logContainer.value.scrollTop = logContainer.value.scrollHeight;
-                        }
+                        if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight;
                     });
                 }, { deep: true });
 
@@ -425,32 +473,16 @@
                 });
 
                 return {
-                    state,
-                    loading,
-                    showLogDrawer,
-                    showGenerateDialog,
-                    isGenerating,
-                    generatedContent,
-                    parsedContent, // 暴露给模板
-                    selectedTopic,
-                    selectedPlatform,
-                    logContainer,
-                    refreshTopics,
-                    openGenerateDialog,
-                    confirmGenerate,
-                    openLink,
-                    copyContent,
-                    getHeatColorClass,
-                    getSourceClass,
-                    getLogLevelClass
+                    state, loading, showLogDrawer, showGenerateDialog, isGenerating, justGenerated,
+                    generatedContent, parsedContent, selectedTopic, selectedPlatform, logContainer,
+                    drawerSize, dialogWidth,
+                    refreshTopics, openGenerateDialog, confirmGenerate, openLink, copyContent, clearContent, scrollToTop,
+                    getHeatColorClass, getSourceClass, getLogLevelClass
                 };
             }
         });
 
-        for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-            app.component(key, component);
-        }
-
+        for (const [key, component] of Object.entries(ElementPlusIconsVue)) { app.component(key, component); }
         app.use(ElementPlus);
         app.mount('#app');
     </script>

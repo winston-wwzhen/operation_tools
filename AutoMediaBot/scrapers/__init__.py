@@ -1,12 +1,15 @@
-from .weibo import scrape_weibo
 from .baidu import scrape_baidu
-from .zhihu import scrape_zhihu_playwright
 from .douyin import scrape_douyin_playwright
+from .toutiao import scrape_toutiao
+from .weibo import scrape_weibo
+from .xiaohongshu import scrape_xiaohongshu
+from .zhihu import scrape_zhihu_playwright
 
-# 导出所有模块，方便外部调用
 __all__ = [
     'scrape_weibo',
     'scrape_baidu',
     'scrape_zhihu_playwright',
-    'scrape_douyin_playwright'
+    'scrape_douyin_playwright',
+    'scrape_xiaohongshu',
+    'scrape_toutiao'
 ]

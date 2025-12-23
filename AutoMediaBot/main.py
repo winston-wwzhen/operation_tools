@@ -18,6 +18,8 @@ from playwright.async_api import async_playwright
 from config_manager import load_config, save_config, add_log, app_config, runtime_state, update_app_config
 from task_scheduler import start_scheduler, update_scheduler, run_task_logic
 from llm_engine import generate_article_for_topic
+# 引入数据库管理模块
+from db_manager import init_db, load_latest_topics_from_db
 
 # === Pydantic 模型 ===
 class ConfigModel(BaseModel):
@@ -50,11 +52,20 @@ app.add_middleware(
 async def startup_event():
     # 1. 加载配置
     load_config()
-    
-    # 2. 启动定时任务
+
+    # 2. 初始化数据库 (新建表)
+    init_db()
+
+    # 3. 从数据库恢复历史数据 (避免重启后页面空白)
+    add_log('info', '正在尝试从数据库恢复历史热点数据...')
+    saved_topics = load_latest_topics_from_db()
+    if saved_topics:
+        runtime_state["hot_topics"] = saved_topics
+
+    # 4. 启动定时任务
     start_scheduler()
-    
-    # 3. 检查浏览器环境
+
+    # 5. 检查浏览器环境
     add_log('info', '正在检查 Playwright 浏览器环境...')
     try:
         async with async_playwright() as p:

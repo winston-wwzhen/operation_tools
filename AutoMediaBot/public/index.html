@@ -3,36 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoMediaBot - 全网热点聚合</title>
-    <!-- Tailwind CSS -->
+    <title>AutoMediaBot - 全网热点聚合 & AI 创作</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- Axios -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <!-- Element Plus -->
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
     <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
-    <!-- Element Plus Icons -->
     <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
         body { background-color: #f3f4f6; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; }
         .topic-card { transition: all 0.3s ease; border-left: 4px solid transparent; }
         .topic-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        .source-tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; }
-        .source-weibo { background-color: #ffe4e6; color: #e11d48; }
-        .source-baidu { background-color: #dbeafe; color: #2563eb; }
-        .source-zhihu { background-color: #e0f2fe; color: #0284c7; }
-        .source-douyin { background-color: #f3e8ff; color: #9333ea; }
-        
-        .heat-bar-bg { background-color: #e5e7eb; border-radius: 999px; height: 6px; width: 100%; overflow: hidden; }
-        .heat-bar-fill { height: 100%; border-radius: 999px; transition: width 1s ease-in-out; }
-        
+
+        /* 平台标签颜色 */
+        .source-tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+        .source-weibo { background-color: #ffe4e6; color: #e11d48; } /* 微博红 */
+        .source-baidu { background-color: #dbeafe; color: #2563eb; } /* 百度蓝 */
+        .source-zhihu { background-color: #e0f2fe; color: #0284c7; } /* 知乎蓝 */
+        .source-douyin { background-color: #f3e8ff; color: #9333ea; } /* 抖音紫 */
+        .source-xiaohongshu { background-color: #fce7f3; color: #db2777; } /* 小红书粉 */
+        .source-toutiao { background-color: #fee2e2; color: #dc2626; } /* 头条红 */
+
         /* 评论样式 */
         .topic-comment {
             background-color: #f9fafb;
-            border-left: 3px solid #6366f1; /* Indigo-500 */
+            border-left: 3px solid #6366f1;
             padding: 8px 12px;
             margin-top: 10px;
             font-size: 0.9rem;
@@ -46,7 +43,15 @@
             font-size: 0.85rem;
             line-height: 1.5;
         }
-        /* 自定义滚动条 */
+
+        /* Markdown 内容样式微调 */
+        .prose h1 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; }
+        .prose h2 { font-size: 1.25em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; color: #374151; }
+        .prose p { margin-bottom: 0.8em; line-height: 1.6; }
+        .prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
+        .prose strong { color: #111827; font-weight: 600; }
+        .prose blockquote { border-left: 4px solid #e5e7eb; padding-left: 1em; color: #6b7280; font-style: italic; }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -55,15 +60,14 @@
 </head>
 <body>
     <div id="app" class="min-h-screen flex flex-col">
-        <!-- 顶部导航 -->
         <header class="bg-white shadow-sm sticky top-0 z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                 <div class="flex items-center space-x-3">
                     <el-icon class="text-indigo-600 text-2xl"><Data-Analysis /></el-icon>
-                    <h1 class="text-xl font-bold text-gray-900">AutoMediaBot <span class="text-xs font-normal text-gray-500 ml-2">v2.0</span></h1>
+                    <h1 class="text-xl font-bold text-gray-900">AutoMediaBot <span class="text-xs font-normal text-gray-500 ml-2">Pro</span></h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500">
+                    <span class="text-sm text-gray-500 hidden sm:inline-block">
                         <span v-if="state.isRunning" class="text-green-600 flex items-center">
                             <span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75 mr-1"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500 mr-2"></span>
@@ -74,19 +78,22 @@
                             空闲
                         </span>
                     </span>
-                    <el-button type="primary" :loading="state.isRunning" @click="refreshTopics" circle>
-                        <el-icon><Refresh /></el-icon>
-                    </el-button>
-                    <el-button @click="showLogDrawer = true" circle>
-                        <el-icon><Document /></el-icon>
-                    </el-button>
+                    <el-tooltip content="立即刷新全网热点" placement="bottom">
+                        <el-button type="primary" :loading="state.isRunning" @click="refreshTopics" circle>
+                            <el-icon><Refresh /></el-icon>
+                        </el-button>
+                    </el-tooltip>
+                    <el-tooltip content="查看系统日志" placement="bottom">
+                        <el-button @click="showLogDrawer = true" circle>
+                            <el-icon><Document /></el-icon>
+                        </el-button>
+                    </el-tooltip>
                 </div>
             </div>
         </header>
 
         <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col lg:flex-row gap-6">
-            
-            <!-- 左侧：热点列表 -->
+
             <section class="flex-grow lg:w-2/3">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-medium text-gray-900 flex items-center">
@@ -96,7 +103,7 @@
                             (共 {{ state.hot_topics.length }} 条)
                         </span>
                     </h2>
-                    <span class="text-xs text-gray-400">数据最后更新: {{ state.lastRunTime || '无' }}</span>
+                    <span class="text-xs text-gray-400 hidden sm:inline">更新时间: {{ state.lastRunTime || '无' }}</span>
                 </div>
 
                 <div v-if="loading" class="py-12 text-center text-gray-400">
@@ -109,45 +116,42 @@
                 </div>
 
                 <div v-else class="space-y-4">
-                    <div v-for="(topic, index) in state.hot_topics" :key="index" 
+                    <div v-for="(topic, index) in state.hot_topics" :key="index"
                          class="topic-card bg-white rounded-lg shadow-sm p-5 border-l-4"
                          :class="getHeatColorClass(topic.heat)">
-                        
-                        <div class="flex justify-between items-start">
-                            <div class="flex-grow pr-4">
-                                <div class="flex items-center gap-2 mb-1">
+
+                        <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+                            <div class="flex-grow">
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
                                     <span :class="getSourceClass(topic.source)" class="source-tag">
                                         {{ topic.source }}
                                     </span>
-                                    <h3 class="text-lg font-bold text-gray-800 hover:text-indigo-600 cursor-pointer" 
+                                    <h3 class="text-lg font-bold text-gray-800 hover:text-indigo-600 cursor-pointer"
                                         @click="openLink(topic.link)">
                                         {{ topic.title }}
                                     </h3>
                                 </div>
-                                
-                                <!-- 标签 -->
-                                <div class="flex gap-2 mt-2" v-if="topic.tags && topic.tags.length">
-                                    <span v-for="tag in topic.tags" :key="tag" 
+
+                                <div class="flex flex-wrap gap-2 mt-2" v-if="topic.tags && topic.tags.length">
+                                    <span v-for="tag in topic.tags" :key="tag"
                                           class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                                         #{{ tag }}
                                     </span>
                                 </div>
 
-                                <!-- AI 点评 (新增部分) -->
                                 <div v-if="topic.comment" class="topic-comment">
                                     <span class="font-bold text-indigo-400 mr-1">AI 点评:</span>
                                     {{ topic.comment }}
                                 </div>
                             </div>
 
-                            <!-- 右侧操作 -->
-                            <div class="flex flex-col items-end gap-2 shrink-0">
-                                <div class="text-center w-12">
+                            <div class="flex sm:flex-col items-end gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-start">
+                                <div class="text-left sm:text-center w-auto sm:w-16">
                                     <div class="text-xl font-black text-gray-700">{{ topic.heat }}</div>
                                     <div class="text-xs text-gray-400">热度</div>
                                 </div>
-                                <el-button size="small" type="primary" plain @click="generateDraft(topic)">
-                                    生成文案
+                                <el-button type="primary" plain @click="openGenerateDialog(topic)">
+                                    <el-icon class="mr-1"><Edit /></el-icon> 生成
                                 </el-button>
                             </div>
                         </div>
@@ -155,30 +159,33 @@
                 </div>
             </section>
 
-            <!-- 右侧：生成结果 & 日志预览 -->
             <aside class="lg:w-1/3 flex flex-col gap-6">
-                <!-- 文案生成结果 -->
-                <div class="bg-white rounded-lg shadow-sm p-4 flex flex-col h-[500px]">
-                    <h3 class="text-md font-medium text-gray-900 mb-3 flex items-center">
-                        <el-icon class="mr-2 text-indigo-600"><Edit-Pen /></el-icon>
-                        文案生成预览
+                <div class="bg-white rounded-lg shadow-sm p-4 flex flex-col h-[600px]">
+                    <h3 class="text-md font-medium text-gray-900 mb-3 flex items-center justify-between">
+                        <span class="flex items-center">
+                            <el-icon class="mr-2 text-indigo-600"><Edit-Pen /></el-icon>
+                            文案预览
+                        </span>
+                        <el-tag v-if="generatedContent" size="small" type="success">生成完成</el-tag>
                     </h3>
-                    <div v-if="generatedContent" class="flex-grow overflow-y-auto bg-gray-50 p-3 rounded text-sm text-gray-700 leading-relaxed border border-gray-200">
-                        <div v-html="generatedContent" class="prose prose-sm max-w-none"></div>
+
+                    <div v-if="generatedContent" class="flex-grow overflow-y-auto bg-gray-50 p-4 rounded border border-gray-200">
+                        <div v-html="parsedContent" class="prose prose-sm max-w-none"></div>
                     </div>
+
                     <div v-else class="flex-grow flex items-center justify-center text-gray-400 bg-gray-50 rounded border border-dashed border-gray-300">
-                        <div class="text-center">
-                            <el-icon class="text-3xl mb-2"><Magic-Stick /></el-icon>
-                            <p class="text-sm">点击左侧"生成文案"按钮<br>AI 将自动撰写文章</p>
+                        <div class="text-center p-4">
+                            <el-icon class="text-4xl mb-3 text-gray-300"><Magic-Stick /></el-icon>
+                            <p class="text-sm">点击左侧列表的 "生成" 按钮<br>AI 将为您撰写多平台爆款文案</p>
                         </div>
                     </div>
-                    <div class="mt-3 flex justify-end" v-if="generatedContent">
-                        <el-button size="small" @click="copyContent">复制内容</el-button>
+
+                    <div class="mt-3 flex justify-end gap-2" v-if="generatedContent">
+                        <el-button size="small" @click="copyContent">复制全文</el-button>
                         <el-button size="small" type="danger" plain @click="generatedContent = ''">清空</el-button>
                     </div>
                 </div>
 
-                <!-- 简易日志 -->
                 <div class="bg-gray-900 rounded-lg shadow-sm p-4 text-gray-300 h-64 overflow-hidden flex flex-col">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500">System Logs</h3>
@@ -195,7 +202,6 @@
             </aside>
         </main>
 
-        <!-- 完整日志抽屉 -->
         <el-drawer v-model="showLogDrawer" title="系统运行日志" size="50%">
             <div class="h-full overflow-y-auto bg-gray-50 p-4 font-mono text-sm">
                 <div v-for="log in state.logs" :key="log.id" class="mb-1 pb-1 border-b border-gray-100 last:border-0">
@@ -205,16 +211,62 @@
                 </div>
             </div>
         </el-drawer>
+
+        <el-dialog v-model="showGenerateDialog" title="🤖 AI 文案生成设置" width="90%" class="sm:max-w-md">
+            <div v-if="selectedTopic" class="mb-6">
+                <p class="text-xs text-gray-500 mb-1">当前热点</p>
+                <div class="bg-gray-50 p-3 rounded text-sm font-medium text-gray-800 border-l-4 border-indigo-500">
+                    {{ selectedTopic.title }}
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">选择目标平台风格</label>
+                <el-radio-group v-model="selectedPlatform" class="w-full grid grid-cols-1 gap-2">
+                    <el-radio label="wechat" border class="!ml-0 !mr-0 w-full">
+                        <span class="font-bold">微信公众号</span>
+                        <span class="text-xs text-gray-400 ml-1">- 深度长文/HTML排版</span>
+                    </el-radio>
+                    <el-radio label="xiaohongshu" border class="!ml-0 !mr-0 w-full">
+                        <span class="font-bold">小红书</span>
+                        <span class="text-xs text-gray-400 ml-1">- Emoji/种草/标签</span>
+                    </el-radio>
+                    <el-radio label="zhihu" border class="!ml-0 !mr-0 w-full">
+                        <span class="font-bold">知乎</span>
+                        <span class="text-xs text-gray-400 ml-1">- 专业/Markdown/理性</span>
+                    </el-radio>
+                    <el-radio label="toutiao" border class="!ml-0 !mr-0 w-full">
+                        <span class="font-bold">今日头条</span>
+                        <span class="text-xs text-gray-400 ml-1">- 爆款标题/叙事强</span>
+                    </el-radio>
+                </el-radio-group>
+            </div>
+
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showGenerateDialog = false">取消</el-button>
+                    <el-button type="primary" @click="confirmGenerate" :loading="isGenerating">
+                        开始创作
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </div>
 
     <script>
-        const { createApp, reactive, ref, onMounted, nextTick, watch } = Vue;
-        
+        const { createApp, reactive, ref, computed, onMounted, nextTick, watch } = Vue;
+
         const app = createApp({
             setup() {
                 const loading = ref(false);
                 const showLogDrawer = ref(false);
+                const showGenerateDialog = ref(false);
+                const isGenerating = ref(false);
+
                 const generatedContent = ref('');
+                const selectedTopic = ref(null);
+                const selectedPlatform = ref('wechat');
+
                 const logContainer = ref(null);
 
                 const state = reactive({
@@ -225,92 +277,113 @@
                     logs: []
                 });
 
+                // 计算属性：解析 Markdown 为 HTML
+                const parsedContent = computed(() => {
+                    if (!generatedContent.value) return '';
+                    // 配置 Marked.js
+                    // 如果后端返回的是纯 HTML (如公众号), marked 也会兼容
+                    try {
+                        return marked.parse(generatedContent.value);
+                    } catch (e) {
+                        return generatedContent.value;
+                    }
+                });
+
                 // 轮询状态
                 const fetchStatus = async () => {
                     try {
                         const res = await axios.get('/api/status');
                         const data = res.data;
-                        
+
                         state.isRunning = data.state.isRunning;
                         state.lastRunTime = data.state.lastRunTime;
                         state.nextRunTime = data.state.nextRunTime;
-                        
-                        // 只在数据变化时更新，避免闪烁
-                        if (JSON.stringify(state.hot_topics) !== JSON.stringify(data.state.hot_topics)) {
-                            state.hot_topics = data.state.hot_topics || [];
+
+                        // 简单比较，避免频繁重绘
+                        if (data.state.hot_topics && data.state.hot_topics.length !== state.hot_topics.length) {
+                            state.hot_topics = data.state.hot_topics;
+                        } else if (JSON.stringify(data.state.hot_topics) !== JSON.stringify(state.hot_topics)) {
+                            state.hot_topics = data.state.hot_topics;
                         }
-                        
-                        // 更新日志
-                        if (data.state.logs && data.state.logs.length > 0) {
-                            state.logs = data.state.logs;
-                        }
+
+                        if (data.state.logs) state.logs = data.state.logs;
 
                     } catch (e) {
                         console.error("Fetch status error:", e);
                     }
                 };
 
-                // 手动刷新
                 const refreshTopics = async () => {
                     try {
                         await axios.post('/api/refresh-topics');
-                        ElementPlus.ElMessage.success('任务已提交，请留意日志');
-                        // 立即拉取一次状态
+                        ElementPlus.ElMessage.success('全网抓取任务已启动');
                         fetchStatus();
                     } catch (e) {
-                        ElementPlus.ElMessage.error('触发任务失败');
+                        ElementPlus.ElMessage.error('任务启动失败');
                     }
                 };
 
-                // 生成文案
-                const generateDraft = async (topic) => {
-                    generatedContent.value = ''; // 清空
-                    const loadingMsg = ElementPlus.ElMessage({
-                        message: '正在生成文案，请稍候（约30秒）...',
-                        type: 'info',
-                        duration: 0
+                // 打开生成对话框
+                const openGenerateDialog = (topic) => {
+                    selectedTopic.value = topic;
+                    showGenerateDialog.value = true;
+                    // 默认选择根据来源推荐，或者保持上次选择
+                    // 这里默认重置为 wechat
+                    if (!selectedPlatform.value) selectedPlatform.value = 'wechat';
+                };
+
+                // 确认生成
+                const confirmGenerate = async () => {
+                    if (!selectedTopic.value) return;
+
+                    isGenerating.value = true;
+                    generatedContent.value = '';
+
+                    // 提前关闭对话框，体验更好，或者不关闭显示loading均可
+                    showGenerateDialog.value = false;
+
+                    const loadingInstance = ElementPlus.ElLoading.service({
+                        target: '.bg-white.rounded-lg.shadow-sm.p-4', // 覆盖在右侧预览区
+                        text: `AI 正在撰写 [${selectedPlatform.value}] 风格文案，请稍候...`
                     });
 
                     try {
                         const res = await axios.post('/api/generate-draft', {
-                            topic: topic,
-                            platform: 'wechat' 
+                            topic: selectedTopic.value,
+                            platform: selectedPlatform.value
                         });
-                        
-                        loadingMsg.close();
+
                         if (res.data.success && res.data.content) {
-                            // 简单的换行转HTML
-                            let content = res.data.content;
-                            // 如果返回的是 markdown，可以引入 marked.js，这里简单处理
-                            content = content.replace(/\n/g, '<br>');
-                            generatedContent.value = content;
-                            ElementPlus.ElMessage.success('文案生成成功！');
+                            generatedContent.value = res.data.content;
+                            ElementPlus.ElMessage.success('文案创作完成！');
                         } else {
-                            ElementPlus.ElMessage.warning('生成内容为空');
+                            ElementPlus.ElMessage.warning('生成内容为空，请检查 Key 或重试');
                         }
                     } catch (e) {
-                        loadingMsg.close();
-                        ElementPlus.ElMessage.error('生成失败: ' + e.message);
+                        ElementPlus.ElMessage.error('生成失败: ' + (e.message || '未知错误'));
+                    } finally {
+                        isGenerating.value = false;
+                        loadingInstance.close();
                     }
                 };
 
                 const openLink = (url) => {
-                    window.open(url, '_blank');
+                    if(url) window.open(url, '_blank');
                 };
 
                 const copyContent = () => {
-                    // 创建临时元素复制HTML内容
+                    // 创建临时元素复制纯文本
+                    // 如果需要复制带格式的 (如公众号)，可能需要更复杂的逻辑，这里简化为复制文本
                     const el = document.createElement('textarea');
-                    // 还原 <br> 为换行
-                    el.value = generatedContent.value.replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+                    el.value = generatedContent.value;
                     document.body.appendChild(el);
                     el.select();
                     document.execCommand('copy');
                     document.body.removeChild(el);
-                    ElementPlus.ElMessage.success('已复制到剪贴板');
+                    ElementPlus.ElMessage.success('原始内容已复制到剪贴板');
                 };
 
-                // 样式辅助函数
+                // 样式辅助
                 const getHeatColorClass = (heat) => {
                     if (heat >= 90) return 'border-l-red-500';
                     if (heat >= 80) return 'border-l-orange-500';
@@ -319,10 +392,13 @@
                 };
 
                 const getSourceClass = (source) => {
+                    if (!source) return 'bg-gray-100 text-gray-600';
                     if (source.includes('微博')) return 'source-weibo';
                     if (source.includes('百度')) return 'source-baidu';
                     if (source.includes('知乎')) return 'source-zhihu';
                     if (source.includes('抖音')) return 'source-douyin';
+                    if (source.includes('小红书')) return 'source-xiaohongshu'; // 新增
+                    if (source.includes('头条')) return 'source-toutiao'; // 新增
                     return 'bg-gray-100 text-gray-600';
                 };
 
@@ -335,7 +411,6 @@
                     }
                 };
 
-                // 自动滚动日志
                 watch(() => state.logs, () => {
                     nextTick(() => {
                         if (logContainer.value) {
@@ -346,17 +421,23 @@
 
                 onMounted(() => {
                     fetchStatus();
-                    setInterval(fetchStatus, 3000); // 每3秒轮询一次状态
+                    setInterval(fetchStatus, 3000);
                 });
 
                 return {
                     state,
                     loading,
                     showLogDrawer,
+                    showGenerateDialog,
+                    isGenerating,
                     generatedContent,
+                    parsedContent, // 暴露给模板
+                    selectedTopic,
+                    selectedPlatform,
                     logContainer,
                     refreshTopics,
-                    generateDraft,
+                    openGenerateDialog,
+                    confirmGenerate,
                     openLink,
                     copyContent,
                     getHeatColorClass,
@@ -366,7 +447,6 @@
             }
         });
 
-        // 注册 Element Plus 图标
         for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
             app.component(key, component);
         }

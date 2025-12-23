@@ -1,8 +1,9 @@
-import json
 import asyncio
-import time
+
 from playwright.async_api import async_playwright
+
 from config_manager import add_log
+
 
 async def scrape_douyin_playwright(limit=10):
     """抓取抖音热榜 (Playwright) - 优化等待逻辑"""

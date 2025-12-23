@@ -7,7 +7,8 @@ from config_manager import add_log, get_config
 async def analyze_hot_topics(raw_topics: List[Dict]):
     """
     使用 GLM-4 分析热点列表
-    (保持原有逻辑不变，仅为了完整性展示)
+    优化：去重聚合、评分、打标签、生成简短点评
+    修复：强制清洗标题中的 [来源] 前缀，移除与来源重复的标签
     """
     if not raw_topics: return []
 
@@ -16,7 +17,7 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
         add_log('warning', '未配置 API Key，跳过智能分析')
         return raw_topics
 
-    # 1. 构建输入
+    # 1. 构建输入 (保留来源前缀供 AI 参考，但在 Output 中要求去除)
     prompt_items = [f"{idx}. [{t['source']}] {t['title']}" for idx, t in enumerate(raw_topics)]
     prompt_text = "\n".join(prompt_items)
 
@@ -44,7 +45,7 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
             add_log('warning', f'LLM 请求发生异常: {e}')
             return ""
 
-    # 2. 调用 LLM
+    # 2. 调用 LLM - 优化 Prompt 指令
     system_prompt_v1 = (
         "你是一个专业的全网舆情分析师。请对以下新闻标题列表进行去重和深度分析。\n"
         "任务：\n"
@@ -53,11 +54,13 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
         "3. 评分 (heat 0-100) 并打标签 (tags)。\n"
         "4. 写一句简短犀利的点评 (comment, 50字内)。\n"
         "\n"
-        "**重要约束：**\n"
-        "1. **严禁输出任何推理过程**。直接输出结果。\n"
-        "2. 请返回纯 JSON 数组格式。\n"
+        "**严格的数据清洗规则：**\n"
+        "1. **标题清洗**：生成的 title 字段**必须去除**开头的 [微博]、[百度] 等来源前缀。只保留纯文本标题。\n"
+        "2. **标签清洗**：tags 数组中**禁止**包含平台名称（如：微博、百度、知乎、头条、热搜）。\n"
+        "3. **禁止推理**：不要输出思考过程，直接返回 JSON 数组。\n"
+        "\n"
         "格式示例：\n"
-        "[{ \"id\": 0, \"title\": \"...\", \"heat\": 80, \"tags\": [\"...\"], \"comment\": \"...\" }]"
+        "[{ \"id\": 0, \"title\": \"纯净的标题内容\", \"heat\": 80, \"tags\": [\"事件关键词\", \"核心人物\"], \"comment\": \"...\" }]"
     )
 
     content = await request_llm(system_prompt_v1, 0.2)
@@ -65,14 +68,13 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
     # 简单的重试逻辑
     if not content or not content.strip():
         add_log('warning', 'LLM 返回为空，尝试重试...')
-        content = await request_llm("请对新闻标题去重、评分和点评，直接返回 JSON 数组。", 0.5)
+        content = await request_llm("请对新闻标题去重、评分，返回 JSON。注意：标题不要包含 [xx] 前缀。", 0.5)
 
-    # 3. 解析与重组 (简化版，复用之前的逻辑)
+    # 3. 解析与重组
     clean_content = content.replace("```json", "").replace("```", "").strip()
     analysis_list = []
 
     try:
-        # 尝试寻找数组边界
         start = clean_content.find('[')
         end = clean_content.rfind(']')
         if start != -1 and end != -1:
@@ -89,12 +91,39 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
                 idx = int(idx)
                 if 0 <= idx < len(raw_topics):
                     orig = raw_topics[idx]
+
+                    # === 数据强制清洗 (防止 LLM 不听话) ===
+
+                    # 1. 清洗标题中的来源前缀 (如 "[微博] xxx" -> "xxx")
+                    raw_title = item.get('title', orig['title']).strip()
+                    source_name = orig['source']
+
+                    # 定义需要剔除的脏字符模式
+                    dirty_prefixes = [
+                        f"[{source_name}]", f"【{source_name}】",
+                        f"[{source_name}热搜]", f"【{source_name}热搜】",
+                        "[]", "【】"
+                    ]
+
+                    clean_title = raw_title
+                    for dirty in dirty_prefixes:
+                        clean_title = clean_title.replace(dirty, "")
+                    clean_title = clean_title.strip()
+
+                    # 2. 清洗标签 (移除包含来源名的标签)
+                    raw_tags = item.get('tags', [])
+                    clean_tags = []
+                    for tag in raw_tags:
+                        # 如果标签不包含平台名，且长度适中，则保留
+                        if source_name not in tag and len(tag) < 10:
+                            clean_tags.append(tag)
+
                     final_list.append({
-                        "title": item.get('title', orig['title']),
+                        "title": clean_title,
                         "link": orig['link'],
                         "source": orig['source'],
                         "heat": item.get('heat', 50),
-                        "tags": item.get('tags', []),
+                        "tags": clean_tags,
                         "comment": item.get('comment', '')
                     })
 

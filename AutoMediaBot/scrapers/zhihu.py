@@ -1,90 +1,92 @@
-import json
 import asyncio
 from playwright.async_api import async_playwright
 from config_manager import add_log
 
 async def scrape_zhihu_playwright(limit=10):
-    """抓取知乎热榜 (Playwright)"""
+    """
+    抓取知乎数据
+    策略：由于知乎原站(/hot)强制登录，改为抓取第三方聚合平台数据。
+    1. 优先抓取 [今日热榜] 的知乎板块 (实时热榜)。
+    2. 如果失败，兜底抓取 [知乎日报] (精选热点)。
+    """
     platform = "[知乎]"
-    add_log('info', f'{platform} 开始启动无头浏览器抓取...')
     items = []
-    
-    try:
-        async with async_playwright() as p:
-            add_log('info', f'{platform} 正在启动 Chromium...')
-            browser = await p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            viewport={'width': 1920, 'height': 1080}
+        )
+        page = await context.new_page()
+
+        # === 方案 A: 抓取今日热榜 (知乎热榜镜像) ===
+        try:
+            target_url = "https://tophub.today/n/mproPpoq6O"
+            add_log('info', f'{platform} (方案A) 正在从聚合平台加载知乎热榜: {target_url}')
             
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-                viewport={'width': 1920, 'height': 1080}
-            )
-            # 注入脚本防止被检测
-            await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
             
-            page = await context.new_page()
+            # 等待表格加载
             try:
-                add_log('info', f'{platform} 正在加载页面: https://www.zhihu.com/hot')
-                await page.goto("https://www.zhihu.com/hot", timeout=30000, wait_until="domcontentloaded")
-                await asyncio.sleep(2) # 等待动态内容渲染
-            except Exception as e:
-                add_log('warning', f'{platform} 页面加载超时或不完整: {e}')
+                await page.wait_for_selector('table.table', timeout=5000)
+            except:
+                add_log('warning', f'{platform} 聚合平台表格未加载，尝试方案B...')
+                raise Exception("Table not found")
 
-            # 策略A: 尝试从 #js-initialData 数据中直接提取 JSON
-            try:
-                add_log('info', f'{platform} 尝试提取 hidden JSON 数据 (#js-initialData)...')
-                script_el = await page.wait_for_selector('#js-initialData', state="attached", timeout=5000)
-                
-                if script_el:
-                    raw_data = await page.evaluate("document.getElementById('js-initialData').innerHTML")
-                    data = json.loads(raw_data)
-                    initial_state = data.get('initialState', {})
-                    hot_list = initial_state.get('topstory', {}).get('hotList', [])
+            # 解析数据
+            rows = await page.locator('table.table tbody tr').all()
+            
+            for row in rows[:limit]:
+                # 标题通常在 td.al a 中
+                link_el = row.locator('td.al a')
+                if await link_el.count() > 0:
+                    title = await link_el.text_content()
+                    href = await link_el.get_attribute('href')
                     
-                    add_log('info', f'{platform} 成功提取到 JSON 数据列表，长度: {len(hot_list)}')
-                    
-                    for item in hot_list[:limit]:
-                        target = item.get('target', {})
-                        title = target.get('titleArea', {}).get('text', '')
-                        link_url = target.get('link', {}).get('url', '')
-                        if title:
-                            full_link = link_url if link_url.startswith('http') else f"https://www.zhihu.com{link_url}"
-                            items.append({"title": title, "link": full_link, "source": "知乎"})
-            except Exception as e:
-                add_log('warning', f'{platform} JSON 提取失败，准备切换到 DOM 解析: {e}')
-
-            # 策略B: DOM 兜底 (如果策略A没有获取到数据)
-            if not items:
-                add_log('info', f'{platform} 正在进行 DOM 元素解析兜底...')
-                try:
-                    selector = '.HotItem, .HotList-item'
-                    elements = await page.locator(selector).all()
-                    add_log('info', f'{platform} 找到 DOM 元素数量: {len(elements)}')
-                    
-                    for el in elements[:limit]:
-                        title_el = el.locator('.HotItem-title, .HotList-itemTitle, h2')
-                        link_el = el.locator('a')
-                        
-                        if await title_el.count() > 0:
-                            title = await title_el.first.text_content()
-                            href = await link_el.first.get_attribute('href')
-                            if title:
-                                items.append({
-                                    "title": title.strip(),
-                                    "link": href if href.startswith('http') else f"https://www.zhihu.com{href}",
-                                    "source": "知乎"
-                                })
-                except Exception as e:
-                    add_log('error', f'{platform} DOM 抓取也失败了: {e}')
-
-            await browser.close()
+                    if title:
+                        items.append({
+                            "title": title.strip(),
+                            # 聚合平台的链接通常会跳转回知乎原站，这符合需求
+                            "link": href if href.startswith('http') else f"https://tophub.today{href}",
+                            "source": "知乎"
+                        })
             
             if items:
-                add_log('success', f'{platform} 抓取成功，获取数据: {len(items)} 条')
-            else:
-                add_log('warning', f'{platform} 抓取结束，但未获取到任何数据')
+                add_log('success', f'{platform} 从聚合平台成功获取 {len(items)} 条热榜数据')
+
+        except Exception as e:
+            add_log('warning', f'{platform} 方案A抓取失败 ({str(e)})，切换到方案B (知乎日报)...')
+            items = [] # 清空可能的不完整数据
+
+        # === 方案 B: 抓取知乎日报 (兜底) ===
+        if not items:
+            try:
+                daily_url = "https://daily.zhihu.com/"
+                add_log('info', f'{platform} (方案B) 正在加载知乎日报: {daily_url}')
+                await page.goto(daily_url, timeout=30000, wait_until="domcontentloaded")
                 
-            return items
+                # 知乎日报结构: .box a.link-button
+                cards = await page.locator('.box a.link-button').all()
+                
+                for card in cards[:limit]:
+                    title_el = card.locator('span.title')
+                    if await title_el.count() > 0:
+                        title = await title_el.text_content()
+                        href = await card.get_attribute('href')
+                        
+                        if title:
+                            items.append({
+                                "title": title.strip(),
+                                "link": f"https://daily.zhihu.com{href}",
+                                "source": "知乎日报"
+                            })
+                
+                if items:
+                    add_log('success', f'{platform} 从知乎日报兜底获取 {len(items)} 条数据')
             
-    except Exception as e:
-        add_log('error', f"{platform} 抓取整体流程失败: {str(e)}")
-        return []
+            except Exception as e:
+                add_log('error', f'{platform} 方案B (知乎日报) 也失败了: {e}')
+
+        await browser.close()
+        return items

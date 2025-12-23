@@ -1,10 +1,11 @@
 import json
 import asyncio
+import time
 from playwright.async_api import async_playwright
 from config_manager import add_log
 
 async def scrape_douyin_playwright(limit=10):
-    """抓取抖音热榜 (Playwright)"""
+    """抓取抖音热榜 (Playwright) - 优化等待逻辑"""
     platform = "[抖音]"
     add_log('info', f'{platform} 开始启动浏览器抓取...')
     items = []
@@ -12,9 +13,9 @@ async def scrape_douyin_playwright(limit=10):
 
     # 监听网络响应的回调
     async def handle_response(response):
-        # 抖音热榜接口特征通常包含 web/hot/search/list
+        # 抖音热榜接口特征
         if "web/hot/search/list" in response.url and response.status == 200:
-            add_log('info', f'{platform} 捕获到热榜 API 响应: {response.url}')
+            # add_log('info', f'{platform} 捕获到热榜 API 响应: {response.url}')
             try:
                 json_body = await response.json()
                 data_list = json_body.get('data', {}).get('word_list', [])
@@ -26,11 +27,17 @@ async def scrape_douyin_playwright(limit=10):
 
     try:
         async with async_playwright() as p:
+            # 使用更真实的 User-Agent
             browser = await p.chromium.launch(headless=True, args=['--disable-blink-features=AutomationControlled'])
             context = await browser.new_context(
-                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+                 user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                 viewport={'width': 1920, 'height': 1080},
+                 device_scale_factor=1,
                  extra_http_headers={"Referer": "https://www.douyin.com/"}
             )
+            # 注入脚本防止 webdriver 检测
+            await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
             page = await context.new_page()
             
             # 注册监听
@@ -41,15 +48,20 @@ async def scrape_douyin_playwright(limit=10):
                 add_log('info', f'{platform} 正在加载页面: {target_url}')
                 await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
                 
-                # 抖音是动态加载，必须等待
-                add_log('info', f'{platform} 页面加载完成，等待数据渲染 (5秒)...')
-                await asyncio.sleep(5)
+                # === 优化等待逻辑 (轮询等待数据，最多等 15 秒) ===
+                add_log('info', f'{platform} 页面加载完成，正在等待 API 数据回传...')
+                max_retries = 30 # 30 * 0.5s = 15s
+                for i in range(max_retries):
+                    if captured_data['list']:
+                        break
+                    await asyncio.sleep(0.5)
+                
             except Exception as e:
-                add_log('warning', f'{platform} 页面加载异常: {e}')
+                add_log('warning', f'{platform} 页面加载或等待超时: {e}')
 
             # 优先使用拦截到的 API 数据
             if captured_data['list']:
-                add_log('info', f'{platform} 使用 API 拦截数据构造结果')
+                # add_log('info', f'{platform} 使用 API 拦截数据构造结果')
                 for item in captured_data['list'][:limit]:
                     word = item.get('word', '')
                     if word:
@@ -62,7 +74,12 @@ async def scrape_douyin_playwright(limit=10):
                 # 如果没拦截到 API，尝试 DOM 兜底
                 add_log('warning', f'{platform} 未拦截到 API 数据，尝试 DOM 抓取兜底...')
                 try:
-                    # 抖音热搜链接通常包含 douyin.com/search
+                    # 等待元素出现，确保 DOM 渲染
+                    try:
+                        await page.wait_for_selector('a[href*="douyin.com/search"]', timeout=5000)
+                    except:
+                        pass
+
                     links = await page.locator('a[href*="douyin.com/search"]').all()
                     add_log('info', f'{platform} 找到潜在热搜链接元素: {len(links)} 个')
                     
@@ -74,8 +91,11 @@ async def scrape_douyin_playwright(limit=10):
                         href = await link.get_attribute('href')
                         
                         # 过滤无效文本
-                        if text and len(text.strip()) > 2 and "type=hot" in str(href):
+                        if text and len(text.strip()) > 1 and ("type=hot" in str(href) or "douyin.com/hot" in str(href)):
                             clean_text = text.strip()
+                            # 过滤掉序号（如 "1 "）
+                            if clean_text.isdigit(): continue
+                            
                             if clean_text not in seen:
                                 items.append({"title": clean_text, "link": href, "source": "抖音"})
                                 seen.add(clean_text)

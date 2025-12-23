@@ -1,7 +1,7 @@
 {
   "llmApiKey": "",
   "llmBaseUrl": "https://open.bigmodel.cn/api/paas/v4/",
-  "llmModel": "glm-4.7",
+  "llmModel": "glm-4.6",
   "wechatAppId": "",
   "wechatSecret": "",
   "topicLimit": 10,

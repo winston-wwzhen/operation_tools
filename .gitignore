@@ -27,6 +27,7 @@ logs/
 
 # ===== Project-specific (sensitive/runtime) =====
 config.json
+.env
 
 # ===== Playwright =====
 # Browsers downloaded by Playwright (common locations)

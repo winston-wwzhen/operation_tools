@@ -1,0 +1,54 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+pip-wheel-metadata/
+
+# ===== Virtualenv / Conda =====
+.venv/
+venv/
+ENV/
+env/
+.conda/
+
+# ===== Logs / runtime =====
+*.log
+logs/
+*.pid
+
+# ===== Project-specific (sensitive/runtime) =====
+config.json
+
+# ===== Playwright =====
+# Browsers downloaded by Playwright (common locations)
+**/playwright/.cache/
+**/.cache/ms-playwright/
+**/ms-playwright/
+
+# ===== FastAPI/Uvicorn =====
+*.sqlite3
+*.db
+
+# ===== Node/Front-end (if any) =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -53,3 +53,4 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+.claude/

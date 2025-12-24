@@ -4,9 +4,15 @@
 """
 import asyncio
 import aiosqlite
+import os
+import sys
 from core.auth import get_password_hash
 
-DB_FILE = "data.db"
+# 获取脚本所在目录的父目录（HotSpotAI 目录）
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
+DB_FILE = os.path.join(PROJECT_DIR, "data.db")
+
 ADMIN_USERNAME = "admin"
 ADMIN_EMAIL = "admin@hotspotai.local"
 ADMIN_PASSWORD = "aaaaaa"

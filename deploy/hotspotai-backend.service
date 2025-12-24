@@ -1,0 +1,29 @@
+[Unit]
+Description=HotSpotAI Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=hotspotai
+Group=hotspotai
+WorkingDirectory=/opt/hotspotai/HotSpotAI
+Environment="PATH=/opt/hotspotai/HotSpotAI/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/hotspotai/HotSpotAI/.venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hotspotai-backend
+
+# 安全
+NoNewPrivileges=true
+PrivateTmp=true
+
+# 资源限制
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

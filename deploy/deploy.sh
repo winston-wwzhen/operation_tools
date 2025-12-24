@@ -306,13 +306,16 @@ setup_nginx() {
         ln -sf $NGINX_CONF /etc/nginx/sites-enabled/hotspotai
     fi
 
-    # 删除默认配置
-    if [[ -L /etc/nginx/sites-enabled/default ]]; then
-        rm /etc/nginx/sites-enabled/default
-    fi
+    # 删除所有默认配置（包括 sites-enabled 和 conf.d）
+    rm -f /etc/nginx/sites-enabled/default
+    rm -f /etc/nginx/conf.d/default.conf
+    rm -f /etc/nginx/conf.d/*.conf 2>/dev/null || true
 
     # 测试配置
-    nginx -t
+    if ! nginx -t; then
+        log_error "Nginx 配置测试失败"
+        exit 1
+    fi
 
     # 重启 Nginx
     systemctl restart nginx

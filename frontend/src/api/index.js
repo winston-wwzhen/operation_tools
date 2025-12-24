@@ -14,6 +14,7 @@ import * as articles from './modules/articles'
 
 // 创建 axios 实例
 const request = axios.create({
+  // 开发环境使用 localhost:3000，生产环境使用相对路径 /api（通过 Nginx 反向代理）
   baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000',
   timeout: 600000,  // 10分钟，适配 glm-4.7 等较慢的模型
   headers: {

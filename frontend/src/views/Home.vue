@@ -541,7 +541,7 @@ export default {
 
     const setupSSE = () => {
       const baseURL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000'
-      const eventSource = new EventSource(`${baseURL}/api/events`)
+      const eventSource = new EventSource(`${baseURL}/events`)
 
       eventSource.onopen = () => {
         console.log('SSE 连接已建立')

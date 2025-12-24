@@ -9,11 +9,13 @@ import { ElMessage } from 'element-plus'
 import * as status from './modules/status'
 import * as content from './modules/content'
 import history from './modules/history'
+import * as auth from './modules/auth'
+import * as articles from './modules/articles'
 
 // 创建 axios 实例
 const request = axios.create({
   baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:3000',
-  timeout: 60000,
+  timeout: 600000,  // 10分钟，适配 glm-4.7 等较慢的模型
   headers: {
     'Content-Type': 'application/json'
   }
@@ -22,7 +24,11 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   config => {
-    // 可以在这里添加 token 等认证信息
+    // 添加 token 到请求头
+    const token = localStorage.getItem('hotspotai_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   error => {
@@ -43,15 +49,28 @@ request.interceptors.response.use(
 
     if (error.response) {
       // 服务器返回错误状态码
-      switch (error.response.status) {
+      const status = error.response.status
+      switch (status) {
         case 400:
-          message = error.response.data?.message || '请求参数错误'
+          message = error.response.data?.detail || '请求参数错误'
+          break
+        case 401:
+          // 优先使用后端返回的具体错误信息（如"用户名或密码错误"）
+          message = error.response.data?.detail || '登录已过期，请重新登录'
+          // 如果是登录过期（不是登录失败），清除 token 并跳转
+          if (message === '登录已过期，请重新登录' || message.includes('Invalid')) {
+            localStorage.removeItem('hotspotai_token')
+            localStorage.removeItem('hotspotai_user')
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login'
+            }
+          }
           break
         case 500:
           message = '服务器内部错误'
           break
         default:
-          message = error.response.data?.message || `请求失败 (${error.response.status})`
+          message = error.response.data?.detail || `请求失败 (${status})`
       }
     } else if (error.request) {
       // 请求已发出但没有收到响应
@@ -69,5 +88,5 @@ request.interceptors.response.use(
 // 默认导出 request (供 import request from '../index' 使用)
 export default request
 
-// 命名导出 (供 import { request, status, content, history } from '@/api' 使用)
-export { request, status, content, history }
+// 命名导出 (供 import { request, status, content, history, auth, articles } from '@/api' 使用)
+export { request, status, content, history, auth, articles }

@@ -79,6 +79,30 @@
       </div>
     </div>
 
+    <!-- 保存选项 -->
+    <div class="mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+      <div class="flex items-center mb-2">
+        <el-icon class="text-indigo-600 mr-1"><Folder-Opened /></el-icon>
+        <span class="text-sm font-medium text-indigo-900">保存选项</span>
+      </div>
+      <el-checkbox v-model="saveArticle">保存到我的文章库</el-checkbox>
+      <el-checkbox
+        v-if="saveArticle"
+        v-model="makePublic"
+        class="ml-4"
+      >
+        生成分享链接（公开文章）
+      </el-checkbox>
+    </div>
+
+    <!-- 未登录提示 -->
+    <div v-if="!isAuthenticated" class="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+      <p class="text-xs text-yellow-800 flex items-center">
+        <el-icon class="mr-1"><Warning-Filled /></el-icon>
+        生成文章需要先登录，点击"开始创作"后将跳转至登录页面
+      </p>
+    </div>
+
     <template #footer>
       <div class="flex gap-2">
         <el-button @click="$emit('update:modelValue', false)" class="flex-1">取消</el-button>
@@ -92,6 +116,7 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
+import { useAuth } from '@/composables/useAuth'
 
 export default {
   name: 'GenerateDialog',
@@ -102,7 +127,10 @@ export default {
   },
   emits: ['update:modelValue', 'confirm'],
   setup(props, { emit }) {
+    const { isAuthenticated } = useAuth()
     const selectedPlatform = ref('wechat')
+    const saveArticle = ref(false)
+    const makePublic = ref(false)
     const windowWidth = ref(window.innerWidth)
 
     const dialogWidth = computed(() => windowWidth.value < 640 ? '90%' : '500px')
@@ -111,23 +139,33 @@ export default {
       windowWidth.value = window.innerWidth
     })
 
+    // 监听对话框打开，重置保存选项
     watch(() => props.modelValue, (newVal) => {
       if (newVal && props.topic) {
         if (props.topic.source.includes('小红书')) selectedPlatform.value = 'xiaohongshu'
         else if (props.topic.source.includes('知乎')) selectedPlatform.value = 'zhihu'
         else if (props.topic.source.includes('头条')) selectedPlatform.value = 'toutiao'
         else selectedPlatform.value = 'wechat'
+        // 如果已登录，默认勾选保存
+        saveArticle.value = isAuthenticated.value
+        makePublic.value = false
       }
     })
 
     const handleConfirm = () => {
-      emit('confirm', selectedPlatform.value)
+      emit('confirm', selectedPlatform.value, {
+        save: saveArticle.value,
+        public: makePublic.value
+      })
     }
 
     return {
       selectedPlatform,
+      saveArticle,
+      makePublic,
       dialogWidth,
-      handleConfirm
+      handleConfirm,
+      isAuthenticated
     }
   }
 }

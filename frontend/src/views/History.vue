@@ -176,7 +176,7 @@
 <script>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElLoading } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { history } from '@/api'
 import GenerateDialog from '@/components/GenerateDialog.vue'
 import { marked } from 'marked'
@@ -301,23 +301,16 @@ export default {
       isGenerating.value = true
       showGenerateDialog.value = false
 
-      const loadingInstance = ElLoading.service({
-        lock: true,
-        text: `AI 正在撰写 [${platform}] 文案...`,
-        background: 'rgba(0, 0, 0, 0.7)'
-      })
-
       try {
-        // 这里需要调用 content API，暂时先跳转回主页
-        ElMessage.info('请返回首页查看生成结果')
+        // 跳转回首页进行生成
+        ElMessage.info('即将跳转到首页进行文章生成...')
         setTimeout(() => {
           router.push('/')
-        }, 1000)
+        }, 800)
       } catch (e) {
-        ElMessage.error('生成失败: ' + (e.message || '未知错误'))
+        ElMessage.error('操作失败: ' + (e.message || '未知错误'))
       } finally {
         isGenerating.value = false
-        loadingInstance.close()
       }
     }
 

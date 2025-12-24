@@ -19,10 +19,25 @@
 - 自动分类打标签
 - 支持生成微信公众号、小红书、知乎、今日头条等平台适配的文案
 
+### 用户系统
+- 用户注册/登录
+- JWT Token 认证
+- 文章保存到个人库
+- 公开文章分享功能
+
+### 文章管理
+- 保存生成的文章到个人库
+- 支持设置为公开/私有
+- 生成分享链接（仅公开文章）
+- 关联原始热点信息
+- 文章预览（桌面/手机模式切换）
+- 文章编辑和复制
+
 ### 历史数据查询
 - 所有数据自动保存到数据库
 - 支持按日期范围筛选历史记录
 - 支持按数据源筛选（微博/百度/知乎等）
+- 支持按标签筛选热点
 - 分页浏览历史热点
 
 ### 定时任务
@@ -35,6 +50,7 @@
 - 实时热点展示与状态监控
 - 支持移动端访问
 - SSE 实时事件推送
+- 全屏预览和系统日志查看
 
 ## 📂 项目结构
 
@@ -46,13 +62,18 @@ operation_tools/
 │   │   ├── __init__.py
 │   │   ├── status.py       # 状态接口
 │   │   ├── content.py      # 内容生成接口
-│   │   └── history.py      # 历史数据接口
+│   │   ├── history.py      # 历史数据接口
+│   │   ├── auth.py         # 用户认证接口
+│   │   └── articles.py     # 文章管理接口
 │   ├── core/               # 核心模块
 │   │   ├── config.py       # 配置管理
 │   │   ├── database.py     # 数据库管理
 │   │   ├── llm.py          # AI 引擎
 │   │   ├── scheduler.py    # 任务调度
-│   │   └── logger.py       # 日志系统
+│   │   ├── logger.py       # 日志系统
+│   │   ├── auth.py         # 认证逻辑
+│   │   ├── users.py        # 用户管理
+│   │   └── articles.py     # 文章管理
 │   ├── scrapers/           # 各平台爬虫
 │   │   ├── weibo.py
 │   │   ├── baidu.py
@@ -69,10 +90,20 @@ operation_tools/
 │   │   ├── App.vue         # 根组件
 │   │   ├── router/         # 路由管理
 │   │   ├── api/            # API 请求封装
+│   │   │   └── modules/    # API 模块
+│   │   │       ├── auth.js      # 认证接口
+│   │   │       └── articles.js  # 文章接口
+│   │   ├── composables/    # 组合式函数
+│   │   │   └── useAuth.js  # 认证状态管理
 │   │   ├── views/          # 页面视图
 │   │   │   ├── Home.vue    # 主页（最新热点）
-│   │   │   └── History.vue # 历史记录页
+│   │   │   ├── History.vue # 历史记录页
+│   │   │   ├── Login.vue   # 登录/注册页
+│   │   │   ├── MyArticles.vue # 我的文章页
+│   │   │   └── SharedArticle.vue # 分享文章页
 │   │   └── components/     # 公共组件
+│   │       ├── TopicCard.vue
+│   │       └── GenerateDialog.vue
 │   └── package.json
 │
 └── scripts/                # 启动脚本
@@ -163,6 +194,11 @@ LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
 LLM_MODEL=glm-4.7
 LLM_TIMEOUT=120
 
+# ============ JWT 配置 ============
+JWT_SECRET_KEY=your_secret_key_here
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=10080
+
 # ============ 定时任务配置 ============
 SCHEDULE_CRON=0 */2 * * *    # 每2小时执行一次
 AUTO_RUN=true                # 是否自动运行定时任务
@@ -197,6 +233,23 @@ DEBUG=false
 | GET | `/api/history/dates` | 获取所有可用日期列表 |
 | GET | `/api/history/stats` | 获取数据库统计信息 |
 
+### 用户认证接口
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | `/api/auth/register` | 用户注册 |
+| POST | `/api/auth/login` | 用户登录 |
+| GET | `/api/auth/me` | 获取当前用户信息 |
+
+### 文章管理接口
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/articles` | 获取我的文章列表（分页） |
+| POST | `/api/articles/generate` | 生成并保存文章 |
+| GET | `/api/articles/{id}` | 获取文章详情 |
+| PUT | `/api/articles/{id}` | 更新文章 |
+| DELETE | `/api/articles/{id}` | 删除文章 |
+| GET | `/api/shared/{share_token}` | 查看公开分享文章 |
+
 ### 健康检查
 | 方法 | 路径 | 描述 |
 |------|------|------|
@@ -216,6 +269,8 @@ DEBUG=false
 - **aiosqlite** - 异步 SQLite
 - **tenacity** - 重试机制
 - **pydantic-settings** - 配置管理
+- **python-jose** - JWT Token 处理
+- **passlib** - 密码哈希
 
 ### 前端依赖
 - **Vue 3** - 前端框架
@@ -239,12 +294,27 @@ DEBUG=false
 
 ## 📝 更新日志
 
-### v1.1.0
+### v1.3.0
+- 添加用户认证系统（注册/登录）
+- 添加文章管理功能（保存、分享、编辑）
+- 添加我的文章页面
+- 添加公开文章分享功能
+- 优化移动端显示效果
+- 优化文章生成加载状态
+- 添加全屏预览和系统日志弹框
+- 支持按标签和平台筛选热点
+
+### v1.2.0
 - 重命名为 HotSpotAI
 - 添加历史数据查询功能
 - 添加定时任务自动运行
 - 优化前端界面，添加历史记录页面
 - 完善日志系统
+
+### v1.1.0
+- 添加内容生成功能
+- 支持多平台文案生成（微信/小红书/知乎/头条）
+- 添加 AI 点评和热度评分
 
 ### v1.0.0
 - 初始版本

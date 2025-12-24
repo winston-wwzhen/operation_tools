@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         description="LLM API 基础 URL"
     )
     llm_model: str = Field(default="glm-4", description="LLM 模型名称")
-    llm_timeout: int = Field(default=120, description="LLM 请求超时时间(秒)")
+    llm_timeout: int = Field(default=600, description="LLM 请求超时时间(秒)")  # 增加到10分钟
 
     # 数据库配置
     database_url: str = Field(default="sqlite:///./data.db", description="数据库连接 URL")

@@ -30,13 +30,22 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
 
     add_log('info', f"Prompt 构建完成，输入长度: {len(prompt_text)} 字符")
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_config("llmBaseUrl"))
+    add_log('info', f'正在初始化 LLM 客户端，模型: {get_config("llmModel", "glm-4")}')
+    add_log('info', f'API 地址: {get_config("llmBaseUrl")}')
+    add_log('info', f'超时设置: {get_config("llmTimeout")} 秒')
+
+    client = AsyncOpenAI(
+        api_key=api_key,
+        base_url=get_config("llmBaseUrl"),
+        timeout=get_config("llmTimeout", 600)
+    )
     model_name = get_config("llmModel", "glm-4")
 
     # 内部请求函数
     @llm_retry
     async def request_llm(sys_prompt, temp):
         try:
+            add_log('info', f'开始调用 LLM API (temperature={temp})...')
             resp = await client.chat.completions.create(
                 model=model_name,
                 messages=[
@@ -46,11 +55,13 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
                 temperature=temp,
                 max_tokens=40960
             )
+            add_log('info', f'LLM 响应成功，开始解析结果...')
             choice = resp.choices[0]
             content = choice.message.content
+            add_log('info', f'LLM 返回内容长度: {len(content) if content else 0} 字符')
             return content if content else ""
         except Exception as e:
-            add_log('warning', f'LLM 请求发生异常: {e}')
+            add_log('error', f'LLM 请求发生异常: {type(e).__name__}: {e}')
             return ""
 
     # 2. 调用 LLM - 优化 Prompt 指令
@@ -148,7 +159,9 @@ async def generate_article_for_topic(topic: Dict, platform: str):
     if not api_key:
         return "请先配置 LLM API Key"
 
-    add_log('info', f"正在生成 [{platform}] 文案: {topic['title']}")
+    add_log('info', f"开始生成 [{platform}] 文案...")
+    add_log('info', f"主题: {topic['title']}")
+    add_log('info', f"来源: {topic.get('source', '网络')}")
 
     # === 定义不同平台的 Prompt ===
     prompts = {
@@ -193,7 +206,12 @@ async def generate_article_for_topic(topic: Dict, platform: str):
     system_prompt = prompts.get(platform, "你是一个专业自媒体编辑。请写一篇关于该热点的文章。")
 
     try:
-        client = AsyncOpenAI(api_key=api_key, base_url=get_config("llmBaseUrl"))
+        add_log('info', f'初始化 LLM 客户端 (超时: {get_config("llmTimeout", 600)}秒)...')
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=get_config("llmBaseUrl"),
+            timeout=get_config("llmTimeout", 600)
+        )
 
         # 启用联网搜索工具，确保内容时效性
         tools_config = [{
@@ -211,6 +229,7 @@ async def generate_article_for_topic(topic: Dict, platform: str):
             "然后基于搜索到的事实，严格按照 System Prompt 中的平台风格要求进行创作。"
         )
 
+        add_log('info', '调用 LLM API 进行文案生成 (联网搜索已启用)...')
         response = await client.chat.completions.create(
             model=get_config("llmModel", "glm-4"),
             messages=[
@@ -220,9 +239,11 @@ async def generate_article_for_topic(topic: Dict, platform: str):
             tools=tools_config
         )
 
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        add_log('info', f'文案生成完成，内容长度: {len(content) if content else 0} 字符')
+        return content
 
     except Exception as e:
-        error_msg = f"文案生成失败: {e}"
+        error_msg = f"文案生成失败: {type(e).__name__}: {e}"
         add_log('error', error_msg)
         return error_msg

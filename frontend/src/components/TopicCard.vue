@@ -1,70 +1,105 @@
 <template>
-  <div
-    class="topic-card bg-white rounded-lg shadow-sm p-3 sm:p-5 border-l-4 relative overflow-hidden"
-    :class="getHeatColorClass(topic.heat)"
-  >
-    <div class="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4">
-      <div class="flex-grow min-w-0 w-full">
-        <div class="flex items-start gap-2 mb-1">
-          <span :class="getSourceClass(topic.source)" class="source-tag mt-0.5 shrink-0">
-            {{ topic.source }}
-          </span>
-          <h3
-            class="text-base sm:text-lg font-bold text-gray-800 leading-snug cursor-pointer active:text-indigo-600 sm:hover:text-indigo-600 line-clamp-2"
-            @click="openLink"
-          >
-            {{ topic.title }}
-          </h3>
-        </div>
-
-        <div class="flex flex-wrap gap-1.5 mt-2 px-1" v-if="topic.tags && topic.tags.length">
-          <span
-            v-for="tag in topic.tags"
-            :key="tag"
-            class="text-[10px] sm:text-xs text-gray-500 bg-gray-50 border border-gray-100 px-1.5 py-0.5 rounded"
-          >
-            #{{ tag }}
-          </span>
-        </div>
-
-        <div v-if="topic.comment" class="topic-comment">
-          <span class="font-bold text-indigo-500 mr-1 text-xs">AI:</span>
-          {{ topic.comment }}
-        </div>
+  <div class="topic-card bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div class="flex items-stretch">
+      <!-- 排名徽章 -->
+      <div class="flex-shrink-0 w-11 flex items-center justify-center py-3" :class="getRankBgClass()">
+        <span class="text-base font-bold" :class="getRankTextClass()">{{ displayIndex }}</span>
       </div>
 
-      <div class="flex sm:flex-col items-center justify-between sm:justify-start w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50 sm:border-none gap-2">
-        <div class="flex items-center sm:block text-left sm:text-center">
-          <span class="text-xs text-gray-400 mr-1 sm:mr-0 sm:block">热度</span>
-          <span class="text-sm sm:text-xl font-black text-gray-700 font-mono">{{ topic.heat }}</span>
+      <!-- 内容区 -->
+      <div class="flex-grow p-3 min-w-0">
+        <div class="flex flex-col sm:flex-row justify-between items-start gap-3">
+          <div class="flex-grow min-w-0">
+            <!-- 来源和标题 -->
+            <div class="flex items-start gap-2 mb-2">
+              <span :class="getSourceClass(topic.source)" class="source-tag shrink-0 text-[10px] px-2 py-0.5 rounded font-medium">
+                {{ topic.source }}
+              </span>
+              <h3
+                class="text-sm font-semibold text-gray-800 leading-snug cursor-pointer hover:text-indigo-600 transition-colors line-clamp-2"
+                @click="openLink"
+              >
+                {{ topic.title }}
+              </h3>
+            </div>
+
+            <!-- 标签 -->
+            <div class="flex flex-wrap gap-1.5 mb-2" v-if="topic.tags && topic.tags.length">
+              <span
+                v-for="tag in topic.tags.slice(0, 5)"
+                :key="tag"
+                class="text-[10px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded"
+              >
+                #{{ tag }}
+              </span>
+            </div>
+
+            <!-- AI 点评 -->
+            <div v-if="topic.comment" class="flex items-start gap-2 bg-amber-50 rounded-lg p-2">
+              <el-icon class="text-amber-500 text-sm mt-0.5"><MagicStick /></el-icon>
+              <p class="text-xs text-gray-700 leading-relaxed">{{ topic.comment }}</p>
+            </div>
+          </div>
+
+          <!-- 右侧操作区 -->
+          <div class="flex sm:flex-col items-center justify-between gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 sm:border-none w-full sm:w-auto">
+            <!-- 热度值 -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full">
+              <el-icon class="text-gray-400 text-sm"><Trophy /></el-icon>
+              <span class="text-sm font-semibold text-gray-700">{{ topic.heat }}</span>
+            </div>
+
+            <!-- 生成按钮 -->
+            <el-button type="primary" size="small" @click="$emit('generate', topic)">
+              <el-icon><EditPen /></el-icon>
+              <span class="hidden sm:inline ml-1">生成</span>
+            </el-button>
+          </div>
         </div>
-        <el-button type="primary" size="small" plain class="!px-4 !h-8" @click="$emit('generate', topic)">
-          <el-icon class="mr-1"><Edit /></el-icon> 生成
-        </el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { Trophy, MagicStick, EditPen } from '@element-plus/icons-vue'
+
 export default {
   name: 'TopicCard',
+  components: { Trophy, MagicStick, EditPen },
   props: {
     topic: {
       type: Object,
       required: true
+    },
+    index: {
+      type: Number,
+      default: 0
     }
   },
   emits: ['generate'],
+  computed: {
+    displayIndex() {
+      return this.index + 1
+    }
+  },
   methods: {
     openLink() {
       if (this.topic.link) window.open(this.topic.link, '_blank')
     },
-    getHeatColorClass(heat) {
-      if (heat >= 90) return 'border-l-red-500'
-      if (heat >= 80) return 'border-l-orange-500'
-      if (heat >= 60) return 'border-l-yellow-500'
-      return 'border-l-blue-500'
+    getRankBgClass() {
+      const idx = this.index
+      if (idx === 0) return 'bg-yellow-100'
+      if (idx === 1) return 'bg-gray-200'
+      if (idx === 2) return 'bg-orange-100'
+      return 'bg-gray-100'
+    },
+    getRankTextClass() {
+      const idx = this.index
+      if (idx === 0) return 'text-yellow-700'
+      if (idx === 1) return 'text-gray-700'
+      if (idx === 2) return 'text-orange-700'
+      return 'text-gray-600'
     },
     getSourceClass(source) {
       if (!source) return 'bg-gray-100 text-gray-600'
@@ -79,3 +114,46 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.topic-card {
+  position: relative;
+}
+
+.source-weibo {
+  background: #ff8200;
+  color: white;
+}
+
+.source-baidu {
+  background: #2932e1;
+  color: white;
+}
+
+.source-zhihu {
+  background: #0084ff;
+  color: white;
+}
+
+.source-douyin {
+  background: #000000;
+  color: white;
+}
+
+.source-xiaohongshu {
+  background: #ff2442;
+  color: white;
+}
+
+.source-toutiao {
+  background: #f85959;
+  color: white;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

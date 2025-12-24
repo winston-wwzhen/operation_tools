@@ -15,7 +15,7 @@ export function getStatus() {
  */
 export function healthCheck() {
   return request({
-    url: '/health',
+    url: '/api/health',
     method: 'get'
   })
 }

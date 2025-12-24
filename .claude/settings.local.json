@@ -20,7 +20,10 @@
       "Bash(poetry check:*)",
       "Bash(poetry run python:*)",
       "Bash(poetry show:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)"
     ]
   }
 }

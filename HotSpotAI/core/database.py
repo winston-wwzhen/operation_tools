@@ -15,6 +15,7 @@ async def init_db():
     """初始化数据库表结构（异步）"""
     try:
         async with aiosqlite.connect(DB_FILE) as db:
+            # 热点话题表
             await db.execute('''
                 CREATE TABLE IF NOT EXISTS hot_topics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +28,40 @@ async def init_db():
                     created_at TIMESTAMP
                 )
             ''')
+
+            # 用户表
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    is_admin INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # 用户文章表
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS user_articles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    topic_id INTEGER,
+                    topic_title TEXT NOT NULL,
+                    topic_link TEXT,
+                    topic_source TEXT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    share_token TEXT UNIQUE NOT NULL,
+                    is_public INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
+
             # 创建索引以提升查询性能
             await db.execute('''
                 CREATE INDEX IF NOT EXISTS idx_created_at
@@ -36,7 +71,55 @@ async def init_db():
                 CREATE INDEX IF NOT EXISTS idx_source
                 ON hot_topics(source)
             ''')
+            await db.execute('''
+                CREATE INDEX IF NOT EXISTS idx_users_username
+                ON users(username)
+            ''')
+            await db.execute('''
+                CREATE INDEX IF NOT EXISTS idx_users_email
+                ON users(email)
+            ''')
+            await db.execute('''
+                CREATE INDEX IF NOT EXISTS idx_user_articles_user_id
+                ON user_articles(user_id)
+            ''')
+            await db.execute('''
+                CREATE INDEX IF NOT EXISTS idx_user_articles_share_token
+                ON user_articles(share_token)
+            ''')
+            await db.execute('''
+                CREATE INDEX IF NOT EXISTS idx_user_articles_created_at
+                ON user_articles(created_at DESC)
+            ''')
+
+            # 创建更新时间触发器
+            await db.execute('''
+                CREATE TRIGGER IF NOT EXISTS update_users_timestamp
+                AFTER UPDATE ON users
+                BEGIN
+                    UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+                END
+            ''')
+            await db.execute('''
+                CREATE TRIGGER IF NOT EXISTS update_user_articles_timestamp
+                AFTER UPDATE ON user_articles
+                BEGIN
+                    UPDATE user_articles SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+                END
+            ''')
+
             await db.commit()
+
+            # 数据库迁移：为已存在的 users 表添加 is_admin 字段
+            try:
+                await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
+                await db.commit()
+                add_log('info', '数据库迁移完成：已添加 is_admin 字段')
+            except Exception as migrate_error:
+                # 字段已存在，忽略错误
+                if 'duplicate column' not in str(migrate_error).lower():
+                    pass
+
         add_log('info', '数据库初始化检查完成')
     except Exception as e:
         add_log('error', f'数据库初始化失败: {e}')
@@ -224,6 +307,7 @@ async def get_stats() -> Dict:
 
     try:
         async with aiosqlite.connect(DB_FILE) as db:
+            db.row_factory = aiosqlite.Row
             # 总数统计
             async with db.execute("SELECT COUNT(*) as count FROM hot_topics") as cursor:
                 row = await cursor.fetchone()
@@ -357,6 +441,7 @@ async def get_distinct_dates() -> List[str]:
     dates = []
     try:
         async with aiosqlite.connect(DB_FILE) as db:
+            db.row_factory = aiosqlite.Row
             async with db.execute('''
                 SELECT DISTINCT DATE(created_at) as date
                 FROM hot_topics

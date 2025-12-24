@@ -10,6 +10,12 @@ import json
 router = APIRouter(tags=["status"])
 
 
+@router.get("/health", summary="健康检查")
+async def health_check():
+    """健康检查接口"""
+    return {"status": "ok", "service": "hotspotai-api"}
+
+
 @router.get("/status", summary="获取系统状态")
 async def get_status():
     """

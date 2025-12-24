@@ -77,3 +77,17 @@ def register_scraper(platform: str):
         ScraperFactory.register(platform, cls)
         return cls
     return decorator
+
+
+# 便捷函数：创建爬虫实例
+def create_scraper(platform: str) -> Optional[BaseScraper]:
+    """
+    创建爬虫实例的便捷函数
+
+    Args:
+        platform: 平台名称
+
+    Returns:
+        爬虫实例，如果平台不存在则返回 None
+    """
+    return ScraperFactory.create(platform)

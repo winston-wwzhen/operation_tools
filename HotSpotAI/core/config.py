@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # 微信公众号配置
     wechat_app_id: str = Field(default="", description="微信 AppID")
     wechat_secret: str = Field(default="", description="微信 Secret")
+    wechat_token_cache_time: int = Field(default=6600, description="AccessToken 缓存时间（秒），默认提前 5 分钟刷新")
+    wechat_publish_interval: int = Field(default=1800, description="发布间隔限制（秒），默认 30 分钟")
+    wechat_daily_limit: int = Field(default=1, description="每日最大发布次数，默认 1（订阅号限制）")
+    wechat_enable_content_check: bool = Field(default=True, description="是否启用内容安全检测")
 
     # 定时任务配置
     schedule_cron: str = Field(default="0 */2 * * *", description="Cron 表达式")

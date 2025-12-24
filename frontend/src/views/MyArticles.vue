@@ -75,7 +75,7 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
                   <el-button size="small" @click="viewArticle(article)">查看</el-button>
                   <el-button
                     v-if="article.is_public"

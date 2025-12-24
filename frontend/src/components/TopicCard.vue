@@ -35,18 +35,18 @@
             </div>
 
             <!-- AI 点评 -->
-            <div v-if="topic.comment" class="flex items-start gap-2 bg-amber-50 rounded-lg p-2">
+            <div v-if="topic.ai_comment" class="flex items-start gap-2 bg-amber-50 rounded-lg p-2">
               <el-icon class="text-amber-500 text-sm mt-0.5"><MagicStick /></el-icon>
-              <p class="text-xs text-gray-700 leading-relaxed">{{ topic.comment }}</p>
+              <p class="text-xs text-gray-700 leading-relaxed">{{ topic.ai_comment }}</p>
             </div>
           </div>
 
           <!-- 右侧操作区 -->
           <div class="flex sm:flex-col items-center justify-between gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 sm:border-none w-full sm:w-auto">
-            <!-- 热度值 -->
-            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full">
-              <el-icon class="text-gray-400 text-sm"><Trophy /></el-icon>
-              <span class="text-sm font-semibold text-gray-700">{{ topic.heat }}</span>
+            <!-- AI 评分 -->
+            <div v-if="topic.ai_score" class="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 rounded-full">
+              <el-icon class="text-indigo-500 text-sm"><Trophy /></el-icon>
+              <span class="text-sm font-semibold text-indigo-700">{{ topic.ai_score }}</span>
             </div>
 
             <!-- 生成按钮 -->

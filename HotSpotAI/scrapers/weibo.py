@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from .base import HTTPScraper
 from .factory import register_scraper
 from utils import http_retry
+from typing import List
 
 
 @register_scraper("weibo")
@@ -63,6 +64,49 @@ class WeiboScraper(HTTPScraper):
 
         except Exception as e:
             self.log_error(str(e))
+            return []
+
+    async def scrape_by_keywords(self, keywords: List[str], limit: int = 10) -> list:
+        """
+        根据关键词抓取微博相关话题
+        策略：由于微博搜索需要登录，改为从通用热搜中筛选包含关键词的内容
+
+        Args:
+            keywords: 关键词列表
+            limit: 每个关键词最大抓取数量
+
+        Returns:
+            热点话题列表，包含 matched_keyword 字段
+        """
+        self.log_start(f"关键词搜索: {', '.join(keywords[:3])}...")
+
+        # 先获取微博热搜数据，然后筛选包含关键词的内容
+        try:
+            all_topics = await self.scrape(limit * 2)  # 获取更多数据用于筛选
+
+            if not all_topics:
+                self.log_warning("无法获取微博热搜数据，关键词搜索返回空结果")
+                return []
+
+            # 筛选包含关键词的话题
+            items = []
+            for topic in all_topics:
+                for keyword in keywords:
+                    if keyword.lower() in topic.get('title', '').lower():
+                        items.append({
+                            **topic,
+                            "matched_keyword": keyword
+                        })
+                        break
+
+                if len(items) >= limit:
+                    break
+
+            self.log_success(f"从热搜中筛选到 {len(items)} 条相关内容")
+            return items[:limit]
+
+        except Exception as e:
+            self.log_error(f"关键词搜索失败: {e}")
             return []
 
 

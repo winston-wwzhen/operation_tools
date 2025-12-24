@@ -28,6 +28,32 @@ class BaseScraper(ABC):
         """
         pass
 
+    async def scrape_by_keywords(self, keywords: List[str], limit: int = 10) -> List[Dict]:
+        """
+        根据关键词抓取热点话题（可选实现）
+
+        Args:
+            keywords: 关键词列表
+            limit: 每个关键词最大抓取数量
+
+        Returns:
+            热点话题列表，格式: [{"title": str, "link": str, "source": str, "matched_keyword": str}, ...]
+        """
+        # 默认实现：调用 scrape 方法，然后过滤包含关键词的结果
+        all_topics = await self.scrape(limit * len(keywords))
+        filtered = []
+        for topic in all_topics:
+            for keyword in keywords:
+                if keyword.lower() in topic.get('title', '').lower():
+                    filtered.append({
+                        **topic,
+                        "matched_keyword": keyword
+                    })
+                    break
+            if len(filtered) >= limit:
+                break
+        return filtered
+
     @abstractmethod
     def get_platform_name(self) -> str:
         """获取平台名称"""

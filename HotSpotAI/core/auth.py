@@ -174,3 +174,34 @@ else:
 
     async def get_current_user():
         raise NotImplementedError("FastAPI is not installed")
+
+
+# Optional authentication - returns None if no token provided
+if FASTAPI_AVAILABLE:
+    from fastapi.security.utils import get_authorization_scheme_param
+
+    async def get_current_user_optional(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    ) -> Optional[dict]:
+        """
+        可选的用户认证依赖
+
+        如果提供了 token 则验证并返回用户信息，否则返回 None
+
+        Returns:
+            用户信息字典，未认证返回 None
+        """
+        if credentials is None:
+            return None
+
+        token = credentials.credentials
+        token_data = decode_access_token(token)
+
+        if token_data is None or token_data.user_id is None:
+            return None
+
+        user = await get_user_by_id(token_data.user_id)
+        return user
+else:
+    async def get_current_user_optional():
+        raise NotImplementedError("FastAPI is not installed")

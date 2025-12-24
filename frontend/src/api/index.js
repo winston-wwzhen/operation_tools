@@ -11,6 +11,8 @@ import * as content from './modules/content'
 import history from './modules/history'
 import * as auth from './modules/auth'
 import * as articles from './modules/articles'
+import * as wechat from './modules/wechat'
+import * as categories from './modules/categories'
 
 // 创建 axios 实例
 const request = axios.create({
@@ -38,6 +40,9 @@ request.interceptors.request.use(
   }
 )
 
+// 防止重复显示 401 错误和重复跳转
+let isShowingAuthError = false
+
 // 响应拦截器
 request.interceptors.response.use(
   response => {
@@ -56,15 +61,25 @@ request.interceptors.response.use(
           message = error.response.data?.detail || '请求参数错误'
           break
         case 401:
-          // 优先使用后端返回的具体错误信息（如"用户名或密码错误"）
-          message = error.response.data?.detail || '登录已过期，请重新登录'
-          // 如果是登录过期（不是登录失败），清除 token 并跳转
-          if (message === '登录已过期，请重新登录' || message.includes('Invalid')) {
+          const detail = error.response.data?.detail || '登录已过期'
+          // 登录接口的 401 不跳转，显示错误信息（如"用户名或密码错误"）
+          const isLoginApi = error.config?.url?.includes('/auth/login')
+          if (isLoginApi) {
+            message = detail
+          } else {
+            // 其他接口的 401：token 失效，清除并跳转
             localStorage.removeItem('hotspotai_token')
             localStorage.removeItem('hotspotai_user')
-            if (window.location.pathname !== '/login') {
-              window.location.href = '/login'
+            // 防止重复显示错误和跳转
+            if (!isShowingAuthError && window.location.pathname !== '/login') {
+              isShowingAuthError = true
+              ElMessage.warning('登录已过期，请重新登录')
+              setTimeout(() => {
+                window.location.href = '/login'
+                isShowingAuthError = false
+              }, 500)
             }
+            return Promise.reject(error)
           }
           break
         case 500:
@@ -81,7 +96,10 @@ request.interceptors.response.use(
       message = error.message
     }
 
-    ElMessage.error(message)
+    // 401 登录失效的情况已经在上面处理，这里不再显示消息
+    if (error.response?.status !== 401 || error.config?.url?.includes('/auth/login')) {
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )
@@ -89,5 +107,5 @@ request.interceptors.response.use(
 // 默认导出 request (供 import request from '../index' 使用)
 export default request
 
-// 命名导出 (供 import { request, status, content, history, auth, articles } from '@/api' 使用)
-export { request, status, content, history, auth, articles }
+// 命名导出 (供 import { request, status, content, history, auth, articles, wechat } from '@/api' 使用)
+export { request, status, content, history, auth, articles, wechat, categories }

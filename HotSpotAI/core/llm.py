@@ -247,3 +247,263 @@ async def generate_article_for_topic(topic: Dict, platform: str):
         error_msg = f"文案生成失败: {type(e).__name__}: {e}"
         add_log('error', error_msg)
         return error_msg
+
+
+# ==================== 新增：批量分析和精选功能 ====================
+
+async def analyze_news_batch(news_list: List[Dict]) -> List[Dict]:
+    """
+    批量分析新闻（用于定时任务）
+    对每条新闻进行评分和简短点评
+
+    Args:
+        news_list: 新闻列表，每条包含 id, title, content, source, tags 等
+
+    Returns:
+        分析结果列表，每项包含 success, score, comment
+    """
+    results = []
+
+    if not news_list:
+        return results
+
+    api_key = get_config("llmApiKey")
+    if not api_key:
+        add_log('warning', '未配置 API Key，跳过批量分析')
+        # 返回默认结果
+        return [{'success': False, 'error': '未配置 API Key'} for _ in news_list]
+
+    try:
+        # 构建批量分析输入
+        prompt_items = []
+        for i, news in enumerate(news_list):
+            title = news.get('title', '')[:100]  # 限制长度
+            content = news.get('content', '')[:200]  # 取部分内容
+            source = news.get('source', '')
+            prompt_items.append(f"{i}. [{source}] {title}")
+
+        prompt_text = "\n".join(prompt_items)
+
+        system_prompt = (
+            "你是一个专业的内容分析师。请对以上新闻列表进行评分和点评。\n"
+            "评分标准 (0-10分):\n"
+            "1. 时效性 (3分): 越新越高\n"
+            "2. 热度 (3分): 越热门越高\n"
+            "3. 价值性 (4分): 内容是否重要、有趣、有讨论价值\n\n"
+            "点评要求: 简短精炼，20字以内，点出核心看点\n\n"
+            "请返回 JSON 数组格式:\n"
+            "[\n"
+            "  {\"index\": 0, \"score\": 8.5, \"comment\": \"核心看点\"},\n"
+            "  {\"index\": 1, \"score\": 7.0, \"comment\": \"核心看点\"},\n"
+            "  ...\n"
+            "]\n\n"
+            "只返回 JSON，不要有其他内容。"
+        )
+
+        add_log('info', f'正在批量分析 {len(news_list)} 条新闻...')
+
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=get_config("llmBaseUrl"),
+            timeout=get_config("llmTimeout", 300)
+        )
+
+        @llm_retry
+        async def request_llm():
+            response = await client.chat.completions.create(
+                model=get_config("llmModel", "glm-4"),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt_text}
+                ],
+                temperature=0.3,
+                max_tokens=8192
+            )
+            return response.choices[0].message.content
+
+        content = await request_llm()
+
+        # 解析结果
+        clean_content = content.replace("```json", "").replace("```", "").strip()
+        try:
+            start = clean_content.find('[')
+            end = clean_content.rfind(']')
+            if start != -1 and end != -1:
+                analysis_list = json.loads(clean_content[start:end+1])
+
+                # 构建结果映射
+                score_map = {}
+                for item in analysis_list:
+                    idx = item.get('index')
+                    if isinstance(idx, int) and 0 <= idx < len(news_list):
+                        score_map[idx] = {
+                            'score': item.get('score', 5.0),
+                            'comment': item.get('comment', ''),
+                            'success': True
+                        }
+
+                # 按顺序生成结果
+                for i in range(len(news_list)):
+                    if i in score_map:
+                        results.append(score_map[i])
+                    else:
+                        # LLM 漏掉的，给默认分
+                        results.append({
+                            'success': True,
+                            'score': 5.0,
+                            'comment': ''
+                        })
+
+                add_log('success', f'批量分析完成，成功 {len([r for r in results if r.get("success")])} 条')
+            else:
+                raise ValueError("无法解析 JSON 数组")
+
+        except Exception as e:
+            add_log('warning', f'批量分析解析失败: {e}，使用规则评分')
+            # 失败时使用规则评分
+            for news in news_list:
+                heat = news.get('heat', 0)
+                # 将热度转换为 0-10 分
+                score = min(10.0, heat / 10.0)
+                results.append({
+                    'success': True,
+                    'score': score,
+                    'comment': ''
+                })
+
+    except Exception as e:
+        add_log('error', f'批量分析失败: {e}')
+        # 返回失败结果
+        return [{'success': False, 'error': str(e)} for _ in news_list]
+
+    return results
+
+
+async def select_hot_topics(news_list: List[Dict], count: int = 20) -> List[Dict]:
+    """
+    使用 AI 从候选新闻中精选热点话题
+
+    Args:
+        news_list: 候选新闻列表（已评分）
+        count: 最终精选数量
+
+    Returns:
+        精选后的热点话题列表
+    """
+    if not news_list:
+        return []
+
+    if len(news_list) <= count:
+        # 候选数量不足，直接返回（格式化字段）
+        return [{
+            'title': n.get('title', ''),
+            'link': n.get('link', ''),
+            'source': n.get('source', ''),
+            'ai_score': n.get('ai_score'),
+            'ai_comment': n.get('ai_comment', ''),
+            'category_id': n.get('category_id')
+        } for n in news_list]
+
+    api_key = get_config("llmApiKey")
+    if not api_key:
+        add_log('warning', '未配置 API Key，使用规则排序')
+        # 使用规则排序：按 ai_score 排序
+        sorted_news = sorted(news_list, key=lambda x: x.get('ai_score', 0), reverse=True)
+        return [{
+            'title': n.get('title', ''),
+            'link': n.get('link', ''),
+            'source': n.get('source', ''),
+            'ai_score': n.get('ai_score'),
+            'ai_comment': n.get('ai_comment', ''),
+            'category_id': n.get('category_id')
+        } for n in sorted_news[:count]]
+
+    try:
+        # 构建输入，取前 50 条候选
+        candidates = news_list[:50]
+        prompt_items = []
+        for i, news in enumerate(candidates):
+            title = news.get('title', '')[:80]
+            score = news.get('ai_score', 0)
+            hours_ago = news.get('created_at', '')
+            prompt_items.append(f"{i}. {title} (评分:{score}, 时间:{hours_ago})")
+
+        prompt_text = "\n".join(prompt_items)
+
+        system_prompt = (
+            f"你是一个热点话题精选专家。请从以上候选新闻中精选出 {count} 条最具价值的热点。\n\n"
+            "精选标准:\n"
+            "1. 时效性：优先最新事件\n"
+            "2. 热度：优先讨论度高的事件\n"
+            "3. 价值性：优先有社会影响、公众关注的事件\n"
+            "4. 多样性：避免选太多同类型新闻\n\n"
+            f"请返回精选的 {count} 条新闻的索引号（0-{len(candidates)-1}），用逗号分隔。\n\n"
+            "示例: 0, 3, 5, 7, 12, 15, 18, 22, 25, 28, 33, 37, 40, 42, 45, 47, 48, 49, 50"
+        )
+
+        add_log('info', f'正在使用 AI 从 {len(candidates)} 条候选中精选 {count} 条...')
+
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=get_config("llmBaseUrl"),
+            timeout=get_config("llmTimeout", 300)
+        )
+
+        response = await client.chat.completions.create(
+            model=get_config("llmModel", "glm-4"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_text}
+            ],
+            temperature=0.5,
+            max_tokens=2048
+        )
+
+        content = response.choices[0].message.content.strip()
+
+        # 解析索引
+        import re
+        indices = re.findall(r'\d+', content)
+        selected_indices = [int(i) for i in indices if 0 <= int(i) < len(candidates)]
+
+        if len(selected_indices) < count:
+            # AI 选得不够，补充规则排序
+            add_log('warning', f'AI 只选了 {len(selected_indices)} 条，补充规则排序')
+            all_indices = set(range(len(candidates)))
+            remaining = list(all_indices - set(selected_indices))
+            # 按 ai_score 排序补充
+            remaining.sort(
+                key=lambda i: candidates[i].get('ai_score', 0),
+                reverse=True
+            )
+            selected_indices.extend(remaining[:count - len(selected_indices)])
+
+        # 构建最终结果
+        selected = []
+        for idx in selected_indices[:count]:
+            news = candidates[idx]
+            selected.append({
+                'title': news.get('title', ''),
+                'link': news.get('link', ''),
+                'source': news.get('source', ''),
+                'ai_score': news.get('ai_score'),
+                'ai_comment': news.get('ai_comment', ''),
+                'category_id': news.get('category_id')
+            })
+
+        add_log('success', f'AI 精选完成，共 {len(selected)} 条')
+        return selected
+
+    except Exception as e:
+        add_log('warning', f'AI 精选失败: {e}，使用规则排序')
+        # 失败时使用规则排序
+        sorted_news = sorted(news_list, key=lambda x: x.get('ai_score', 0), reverse=True)
+        return [{
+            'title': n.get('title', ''),
+            'link': n.get('link', ''),
+            'source': n.get('source', ''),
+            'ai_score': n.get('ai_score'),
+            'ai_comment': n.get('ai_comment', ''),
+            'category_id': n.get('category_id')
+        } for n in sorted_news[:count]]
+

@@ -8,6 +8,8 @@ if sys.platform == 'win32':
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from playwright.async_api import async_playwright
 
 # 导入核心模块
@@ -22,6 +24,14 @@ from core import (
     get_logger,
 )
 from api import api_router
+
+# 导入异常处理
+from core.exceptions import (
+    AppException,
+    app_exception_handler,
+    http_exception_handler,
+    general_exception_handler,
+)
 
 # 加载配置
 settings = get_settings()
@@ -56,6 +66,16 @@ app.add_middleware(
 
 # 注册 API 路由
 app.include_router(api_router)
+
+# === 注册全局异常处理器 ===
+# 自定义应用异常
+app.add_exception_handler(AppException, app_exception_handler)
+# HTTP 异常
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+# 请求验证异常
+app.add_exception_handler(RequestValidationError, http_exception_handler)
+# 通用异常（最后注册，作为兜底）
+app.add_exception_handler(Exception, general_exception_handler)
 
 
 # === 启动事件 ===

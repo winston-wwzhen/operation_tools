@@ -61,7 +61,7 @@
             type="primary"
             native-type="submit"
             size="large"
-            :loading="authState.loading"
+            :loading="loading"
             class="w-full"
           >
             {{ isLogin ? '登录' : '注册' }}
@@ -96,16 +96,18 @@ import { useRouter } from 'vue-router'
 import { User, Message, Lock, DataAnalysis, Back } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAuth } from '@/composables/useAuth'
+import { auth } from '@/api'
 
 export default {
   name: 'Login',
   components: { User, Message, Lock, DataAnalysis, Back },
   setup() {
     const router = useRouter()
-    const { state: authState, login, register } = useAuth()
+    const { login } = useAuth()
 
     const isLogin = ref(true)
     const formRef = ref(null)
+    const loading = ref(false)
 
     const form = reactive({
       username: '',
@@ -158,16 +160,19 @@ export default {
     const handleSubmit = async () => {
       try {
         await formRef.value.validate()
+        loading.value = true
 
         if (isLogin.value) {
-          await login(form.username, form.password)
+          await login({ username: form.username, password: form.password })
         } else {
-          await register(form.username, form.email, form.password)
+          await auth.register(form.username, form.email, form.password)
         }
 
         router.push('/')
       } catch (e) {
         // 验证或 API 错误已处理
+      } finally {
+        loading.value = false
       }
     }
 
@@ -181,7 +186,7 @@ export default {
       form,
       formRef,
       rules,
-      authState,
+      loading,
       toggleMode,
       handleSubmit,
       goHome

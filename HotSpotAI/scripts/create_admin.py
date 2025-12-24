@@ -1,21 +1,40 @@
 """
 创建管理员账户脚本
 运行此脚本将在数据库中创建一个管理员账户
+
+管理员凭据从环境变量读取：
+- ADMIN_USERNAME: 管理员用户名（默认: admin）
+- ADMIN_PASSWORD: 管理员密码（默认: aaaaaa）
+- ADMIN_EMAIL: 管理员邮箱（默认: admin@hotspotai.local）
+
+需要在 .env 文件中配置这些变量。
 """
 import asyncio
 import aiosqlite
 import os
 import sys
 from core.auth import get_password_hash
+from core.config import get_settings
 
 # 获取脚本所在目录的父目录（HotSpotAI 目录）
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 DB_FILE = os.path.join(PROJECT_DIR, "data.db")
 
-ADMIN_USERNAME = "admin"
-ADMIN_EMAIL = "admin@hotspotai.local"
-ADMIN_PASSWORD = "aaaaaa"
+# 加载环境变量
+env_file = os.path.join(PROJECT_DIR, ".env")
+if os.path.exists(env_file):
+    with open(env_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ[key.strip()] = value.strip()
+
+# 从环境变量读取管理员凭据，使用默认值
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "aaaaaa")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@hotspotai.local")
 
 
 async def create_admin_user():

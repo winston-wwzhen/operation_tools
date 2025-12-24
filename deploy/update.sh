@@ -89,7 +89,23 @@ fi
 # 3. 更新 Python 依赖
 log_info "更新 Python 依赖..."
 cd $DEPLOY_DIR/HotSpotAI
-poetry install --no-interaction
+
+# 确保 poetry 可用（可能在 ~/.local/bin）
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v poetry &> /dev/null; then
+    # 如果当前用户没有 poetry，尝试使用 hotspotai 用户的虚拟环境
+    if [[ -f $DEPLOY_DIR/HotSpotAI/.venv/bin/pip ]]; then
+        $DEPLOY_DIR/HotSpotAI/.venv/bin/pip install --upgrade pip
+        log_info "使用虚拟环境的 pip 更新依赖"
+        # 使用项目的 pyproject.toml 安装依赖
+        $DEPLOY_DIR/HotSpotAI/.venv/bin/pip install -e $DEPLOY_DIR/HotSpotAI
+    else
+        log_error "Poetry 未找到，请先安装 Poetry"
+        exit 1
+    fi
+else
+    poetry install --no-interaction
+fi
 
 # 4. 更新前端
 log_info "更新前端..."

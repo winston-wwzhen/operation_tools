@@ -202,17 +202,32 @@ install_python_deps() {
     log_info "安装 Python 依赖..."
     cd $DEPLOY_DIR/HotSpotAI
 
+    # 确保 poetry 可用
+    export PATH="$HOME/.local/bin:$PATH"
+
     # 创建虚拟环境（如果不存在）
     if [[ ! -d .venv ]]; then
-        poetry config virtualenvs.in-project true
-        poetry install --no-interaction
+        if command -v poetry &> /dev/null; then
+            poetry config virtualenvs.in-project true
+            poetry install --no-interaction
+        else
+            log_error "Poetry 未安装，请先安装 Poetry"
+            exit 1
+        fi
     else
-        log_info "虚拟环境已存在，跳过安装"
+        log_info "虚拟环境已存在，更新依赖..."
+        if command -v poetry &> /dev/null; then
+            poetry install --no-interaction
+        fi
     fi
 
     # 安装 Playwright 浏览器
     log_info "安装 Playwright 浏览器..."
-    poetry run playwright install chromium --with-deps
+    if [[ -f .venv/bin/python ]]; then
+        .venv/bin/python -m playwright install chromium --with-deps
+    elif command -v poetry &> /dev/null; then
+        poetry run playwright install chromium --with-deps
+    fi
 }
 
 # 安装前端依赖并构建

@@ -13,13 +13,18 @@ import asyncio
 import aiosqlite
 import os
 import sys
-from core.auth import get_password_hash
-from core.config import get_settings
 
 # 获取脚本所在目录的父目录（HotSpotAI 目录）
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 DB_FILE = os.path.join(PROJECT_DIR, "data.db")
+
+# 将 PROJECT_DIR 添加到 Python 路径，以便导入 core 模块
+if PROJECT_DIR not in sys.path:
+    sys.path.insert(0, PROJECT_DIR)
+
+from core.auth import get_password_hash
+from core.config import get_settings
 
 # 加载环境变量
 env_file = os.path.join(PROJECT_DIR, ".env")

@@ -1,6 +1,6 @@
 #!/bin/bash
 # HotSpotAI 环境变量配置脚本
-# 用法: bash setup-env.sh [目标目录]
+# 用法: bash setup-env.sh [目标目录] [--non-interactive]
 
 set -e
 
@@ -15,8 +15,22 @@ log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# 目标目录
-TARGET_DIR="${1:-.}"
+# 解析参数
+TARGET_DIR="."
+INTERACTIVE=true
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --non-interactive)
+            INTERACTIVE=false
+            shift
+            ;;
+        *)
+            TARGET_DIR="$1"
+            shift
+            ;;
+    esac
+done
 
 # 检查 .env.example 是否存在
 ENV_EXAMPLE="$TARGET_DIR/.env.example"
@@ -27,6 +41,14 @@ if [[ ! -f "$ENV_EXAMPLE" ]]; then
     exit 1
 fi
 
+# 非交互模式直接复制
+if [[ $INTERACTIVE == false ]]; then
+    cp "$ENV_EXAMPLE" "$ENV_OUTPUT"
+    log_info "配置文件已创建: $ENV_OUTPUT"
+    log_warn "请手动编辑配置文件，设置 LLM_API_KEY 和 JWT_SECRET_KEY"
+    exit 0
+fi
+
 echo ""
 echo "=========================================="
 echo "  HotSpotAI 环境变量配置"
@@ -35,7 +57,7 @@ echo ""
 log_info "配置文件将保存到: $ENV_OUTPUT"
 echo ""
 
-# 询问是否使用默认值
+# 询问是否使用交互式配置
 read -p "是否使用交互式配置？(Y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then

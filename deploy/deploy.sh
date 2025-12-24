@@ -215,15 +215,40 @@ setup_environment() {
     log_info "配置环境变量..."
 
     if [[ ! -f $DEPLOY_DIR/HotSpotAI/.env ]]; then
-        if [[ -f "$CURRENT_DIR/deploy/setup-env.sh" ]]; then
-            bash "$CURRENT_DIR/deploy/setup-env.sh" $DEPLOY_DIR/HotSpotAI
-        else
-            log_warn "未找到 setup-env.sh，使用默认配置"
-            cp $DEPLOY_DIR/HotSpotAI/.env.example $DEPLOY_DIR/HotSpotAI/.env
-            log_warn "请手动编辑 $DEPLOY_DIR/HotSpotAI/.env 配置 LLM_API_KEY"
+        # 非交互模式：直接复制并提示用户配置
+        cp $DEPLOY_DIR/HotSpotAI/.env.example $DEPLOY_DIR/HotSpotAI/.env
+
+        echo ""
+        log_warn "环境配置文件已创建: $DEPLOY_DIR/HotSpotAI/.env"
+        echo ""
+        echo "=========================================="
+        echo "  ⚠️  重要：请配置以下必需项"
+        echo "=========================================="
+        echo ""
+        echo "请编辑配置文件设置 LLM_API_KEY："
+        echo "  sudo nano $DEPLOY_DIR/HotSpotAI/.env"
+        echo ""
+        echo "必需配置项："
+        echo "  - LLM_API_KEY     : 智谱 AI API Key（必需）"
+        echo "  - JWT_SECRET_KEY : JWT 密钥（必需）"
+        echo ""
+
+        # 等待用户配置
+        read -p "配置完成后按回车继续..." -r
+        echo ""
+
+        # 验证配置
+        if grep -q "LLM_API_KEY=your_api_key_here" $DEPLOY_DIR/HotSpotAI/.env; then
+            log_warn "LLM_API_KEY 未设置，服务可能无法正常工作"
+            read -p "是否继续？(y/N) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log_error "部署已取消"
+                exit 1
+            fi
         fi
     else
-        log_info ".env 文件已存在"
+        log_info ".env 文件已存在，跳过配置"
     fi
 }
 

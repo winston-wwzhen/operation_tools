@@ -5,7 +5,7 @@ import request from '../index'
  */
 export function getStatus() {
   return request({
-    url: '/api/status',
+    url: '/status',
     method: 'get'
   })
 }
@@ -15,7 +15,7 @@ export function getStatus() {
  */
 export function healthCheck() {
   return request({
-    url: '/api/health',
+    url: '/health',
     method: 'get'
   })
 }

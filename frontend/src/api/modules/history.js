@@ -15,7 +15,7 @@ export default {
    */
   getHistory(params) {
     return request({
-      url: '/api/history/topics',
+      url: '/history/topics',
       method: 'get',
       params
     })
@@ -26,7 +26,7 @@ export default {
    */
   getDates() {
     return request({
-      url: '/api/history/dates',
+      url: '/history/dates',
       method: 'get'
     })
   },
@@ -36,7 +36,7 @@ export default {
    */
   getStats() {
     return request({
-      url: '/api/history/stats',
+      url: '/history/stats',
       method: 'get'
     })
   }

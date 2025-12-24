@@ -5,7 +5,7 @@ import request from '../index'
  */
 export function refreshTopics() {
   return request({
-    url: '/api/refresh-topics',
+    url: '/refresh-topics',
     method: 'post'
   })
 }
@@ -15,7 +15,7 @@ export function refreshTopics() {
  */
 export function generateDraft(data) {
   return request({
-    url: '/api/generate-draft',
+    url: '/generate-draft',
     method: 'post',
     data,
     timeout: 120000 // 2分钟超时

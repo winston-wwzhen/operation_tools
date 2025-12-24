@@ -81,6 +81,8 @@ operation_tools/
 │   │   ├── douyin.py
 │   │   ├── xiaohongshu.py
 │   │   └── toutiao.py
+│   ├── scripts/            # 工具脚本
+│   │   └── create_admin.py # 创建管理员账户
 │   ├── .env                # 环境配置
 │   └── pyproject.toml      # Poetry 依赖配置
 │
@@ -106,7 +108,16 @@ operation_tools/
 │   │       └── GenerateDialog.vue
 │   └── package.json
 │
-└── scripts/                # 启动脚本
+├── deploy/                 # Ubuntu Server 部署脚本
+│   ├── deploy.sh           # 一键部署脚本
+│   ├── setup-env.sh        # 环境配置脚本
+│   ├── update.sh           # 更新脚本
+│   ├── nginx.conf          # Nginx 配置
+│   ├── hotspotai-backend.service  # Systemd 服务
+│   ├── hotspotai-scraper.service  # 爬虫服务
+│   └── ubuntu-deploy-guide.md     # 部署文档
+│
+└── scripts/                # 本地开发启动脚本
     ├── start.bat           # Windows 统一启动
     ├── stop.bat            # Windows 停止服务
     └── start.sh            # Mac/Linux 统一启动
@@ -182,6 +193,72 @@ scripts\stop.bat
 ```bash
 ./scripts/stop.sh
 ```
+
+## 🖥️ Ubuntu Server 部署
+
+### 一键部署
+
+适用于 Ubuntu 20.04 / 22.04 LTS：
+
+```bash
+# 方式一：从 Git 仓库部署
+git clone https://github.com/winston-wwzhen/operation_tools.git
+cd operation_tools
+sudo bash deploy/deploy.sh
+
+# 方式二：使用 curl 一键部署
+curl -fsSL https://raw.githubusercontent.com/winston-wwzhen/operation_tools/main/deploy/deploy.sh | sudo bash
+```
+
+部署脚本会自动：
+1. 安装所有依赖（Python 3.8+、Node.js 18+、Nginx、Poetry）
+2. 配置 systemd 服务（开机自启）
+3. 配置 Nginx 反向代理
+4. 构建前端静态文件
+5. 启动所有服务
+
+### 服务管理
+
+```bash
+# 查看服务状态
+sudo systemctl status hotspotai-backend
+
+# 启动/停止/重启
+sudo systemctl restart hotspotai-backend
+
+# 查看日志
+sudo journalctl -u hotspotai-backend -f
+```
+
+### 更新应用
+
+```bash
+cd /opt/hotspotai
+sudo bash deploy/update.sh
+```
+
+详细部署文档请参考：[deploy/ubuntu-deploy-guide.md](deploy/ubuntu-deploy-guide.md)
+
+## 👤 管理员账户
+
+首次部署后，需要创建管理员账户以访问管理功能：
+
+```bash
+cd HotSpotAI
+python scripts/create_admin.py
+```
+
+**默认管理员账户：**
+- 用户名: `admin`
+- 密码: `aaaaaa`
+- 邮箱: `admin@hotspotai.local`
+
+> ⚠️ **安全提示**: 首次登录后请立即修改默认密码！
+
+管理员权限包括：
+- 手动刷新热点数据
+- 查看系统日志
+- 访问管理功能
 
 ## ⚙️ 配置说明
 
@@ -293,6 +370,14 @@ DEBUG=false
 5. **数据存储**: SQLite 数据库文件 `data.db` 会自动创建在 HotSpotAI 目录下
 
 ## 📝 更新日志
+
+### v1.4.0
+- 添加 Ubuntu Server 自动部署脚本
+- 添加 Nginx 反向代理配置
+- 添加 systemd 服务管理
+- 添加管理员账户创建脚本
+- 添加应用更新脚本
+- 添加完整部署文档
 
 ### v1.3.0
 - 添加用户认证系统（注册/登录）

@@ -63,13 +63,33 @@ check_ubuntu() {
 # 检查网络连接
 check_network() {
     log_info "检查网络连接..."
-    if ! ping -c 1 -W 2 google.com &> /dev/null; then
-        log_warn "无法连接到外网，请检查网络设置"
-        read -p "是否继续？(y/N) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+
+    # 使用国内可访问的地址测试网络
+    # 优先测试 DNS（阿里云公共 DNS）
+    if ping -c 1 -W 2 223.5.5.5 &> /dev/null; then
+        log_info "网络连接正常 ✓"
+        return 0
+    fi
+
+    # 备用测试：腾讯公共 DNS
+    if ping -c 1 -W 2 119.29.29.29 &> /dev/null; then
+        log_info "网络连接正常 ✓"
+        return 0
+    fi
+
+    # 备用测试：百度
+    if ping -c 1 -W 2 www.baidu.com &> /dev/null; then
+        log_info "网络连接正常 ✓"
+        return 0
+    fi
+
+    # 所有测试都失败
+    log_warn "无法连接到外网，部署可能失败"
+    log_warn "请检查网络设置或配置代理"
+    read -p "是否继续？(y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
     fi
 }
 

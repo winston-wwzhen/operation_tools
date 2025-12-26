@@ -265,19 +265,9 @@ def add_log(level: str, message: str):
     """
     global _frontend_handler
 
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    log_entry = {
-        "id": int(datetime.now().timestamp() * 1000),
-        "time": timestamp,
-        "level": level,
-        "message": message
-    }
-
-    # 兼容旧代码：存入运行时状态
-    from .config import runtime_state, LOG_LIMIT
-    runtime_state["logs"].insert(0, log_entry)
-    if len(runtime_state["logs"]) > LOG_LIMIT:
-        runtime_state["logs"].pop()
+    # 使用 log_utils 的缓冲区（避免循环导入）
+    from .log_utils import add_log_to_buffer
+    log_entry = add_log_to_buffer(level, message)
 
     # 同时使用标准日志系统
     logger = get_logger('automediabot')
@@ -292,10 +282,11 @@ def add_log(level: str, message: str):
     log_level = level_map.get(level.lower(), logging.INFO)
 
     # 添加特殊标记用于 success 级别
+    display_message = message
     if level.lower() == 'success':
-        message = f"[SUCCESS] {message}"
+        display_message = f"[SUCCESS] {message}"
 
-    logger.log(log_level, message)
+    logger.log(log_level, display_message)
 
 
 def enable_frontend_logging():

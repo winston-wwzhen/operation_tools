@@ -7,6 +7,12 @@ import re
 from typing import List, Dict
 from openai import AsyncOpenAI
 from core.config import add_log, get_config
+from core.prompts import (
+    get_analysis_prompt,
+    get_analysis_retry_prompt,
+    get_platform_prompt,
+    get_platform_temperature,
+)
 from utils import llm_retry
 
 
@@ -64,30 +70,15 @@ async def analyze_hot_topics(raw_topics: List[Dict]):
             add_log('error', f'LLM 请求发生异常: {type(e).__name__}: {e}')
             return ""
 
-    # 2. 调用 LLM - 优化 Prompt 指令
-    system_prompt_v1 = (
-        "你是一个专业的全网舆情分析师。请对以下新闻标题列表进行去重和深度分析。\n"
-        "任务：\n"
-        "1. 合并重复或内容相近的事件。\n"
-        "2. 从原始列表中选择一个代表性 ID。\n"
-        "3. 评分 (heat 0-100) 并打标签 (tags)。\n"
-        "4. 写一句简短犀利的点评 (comment, 50字内)。\n"
-        "\n"
-        "**严格的数据清洗规则：**\n"
-        "1. **标题清洗**：生成的 title 字段**必须去除**开头的 [微博]、[百度] 等来源前缀。只保留纯文本标题。\n"
-        "2. **标签清洗**：tags 数组中**禁止**包含平台名称（如：微博、百度、知乎、头条、热搜）。\n"
-        "3. **禁止推理**：不要输出思考过程，直接返回 JSON 数组。\n"
-        "\n"
-        "格式示例：\n"
-        "[{ \"id\": 0, \"title\": \"纯净的标题内容\", \"heat\": 80, \"tags\": [\"事件关键词\", \"核心人物\"], \"comment\": \"...\" }]"
-    )
+    # 2. 调用 LLM - 使用配置化的 Prompt
+    system_prompt_v1 = get_analysis_prompt()
 
     content = await request_llm(system_prompt_v1, 0.2)
 
     # 简单的重试逻辑
     if not content or not content.strip():
         add_log('warning', 'LLM 返回为空，尝试重试...')
-        content = await request_llm("请对新闻标题去重、评分，返回 JSON。注意：标题不要包含 [xx] 前缀。", 0.5)
+        content = await request_llm(get_analysis_retry_prompt(), 0.5)
 
     # 3. 解析与重组
     clean_content = content.replace("```json", "").replace("```", "").strip()
@@ -163,47 +154,10 @@ async def generate_article_for_topic(topic: Dict, platform: str):
     add_log('info', f"主题: {topic['title']}")
     add_log('info', f"来源: {topic.get('source', '网络')}")
 
-    # === 定义不同平台的 Prompt ===
-    prompts = {
-        "wechat": (
-            "你是一个资深微信公众号主笔，擅长撰写深度、引发共鸣的爆款文章。\n"
-            "【写作要求】\n"
-            "1. **标题**：起2-3个备选标题，风格要有吸引力、情绪感或悬念。\n"
-            "2. **格式**：输出 HTML 格式（只输出<body>内容），使用 <h2>, <p>, <strong> 等标签排版。\n"
-            "3. **结构**：摘要 -> 引入 -> 深度分析(分点) -> 升华结尾。\n"
-            "4. **风格**：观点犀利，逻辑清晰，金句频出，语气既专业又有温度。"
-        ),
-        "xiaohongshu": (
-            "你是一个小红书百万粉博主（KOC），擅长种草和分享热点。\n"
-            "【写作要求】\n"
-            "1. **标题**：二极管标题/悬念标题，必须包含关键词，吸引点击。\n"
-            "2. **正文**：\n"
-            "   - 大量使用 Emoji 表情 (✨🔥💡📌)。\n"
-            "   - 语气亲切口语化（家人们、集美们、绝绝子）。\n"
-            "   - 段落短小，便于手机阅读。\n"
-            "   - 重点内容用符号标注 (✅ ❌)。\n"
-            "3. **结尾**：必须添加 5-8 个热门话题标签 (#)。"
-        ),
-        "zhihu": (
-            "你是一个知乎高赞答主，某个领域的资深专家。\n"
-            "【写作要求】\n"
-            "1. **风格**：理性、客观、硬核、逻辑严密。\n"
-            "2. **格式**：使用 Markdown 格式。\n"
-            "3. **开头**：直接抛出核心观点(如\"谢邀, 利益相关\"或\"直接说结论\")。\n"
-            "4. **内容**：多维度拆解问题，引用数据或事实（基于搜索结果），进行深度剖析。\n"
-            "5. **语气**：专业冷静，避免情绪化表达。"
-        ),
-        "toutiao": (
-            "你是一个今日头条的资深时评人。\n"
-            "【写作要求】\n"
-            "1. **标题**：三段式标题，信息量大，悬念强。\n"
-            "2. **风格**：通俗易懂，接地气，叙事性强，情绪饱满。\n"
-            "3. **结构**：倒金字塔结构，开头即高潮，中间补充细节。"
-        )
-    }
-
-    # 默认回退到通用 Prompt
-    system_prompt = prompts.get(platform, "你是一个专业自媒体编辑。请写一篇关于该热点的文章。")
+    # 使用配置化的平台 Prompt
+    platform_config = get_platform_prompt(platform)
+    system_prompt = platform_config.system_prompt
+    temperature = get_platform_temperature(platform)
 
     try:
         add_log('info', f'初始化 LLM 客户端 (超时: {get_config("llmTimeout", 600)}秒)...')
@@ -236,6 +190,7 @@ async def generate_article_for_topic(topic: Dict, platform: str):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
+            temperature=temperature,
             tools=tools_config
         )
 

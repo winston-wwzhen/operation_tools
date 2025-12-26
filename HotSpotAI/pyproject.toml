@@ -26,7 +26,98 @@ passlib = "1.7.4"
 bcrypt = "4.0.1"
 
 [tool.poetry.group.dev.dependencies]
+# Testing
 pytest = "^7.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.11.0"
+httpx-mock = "^0.1.0"
+
+# Code formatting
+black = "^23.7.0"
+isort = "^5.12.0"
+
+# Code linting
+flake8 = "^6.1.0"
+pylint = "^2.17.0"
+
+# Type checking
+mypy = "^1.5.0"
+types-requests = "^2.31.0"
+
+# Security
+bandit = "^1.7.0"
+safety = "^2.3.0"
+
+# Pre-commit hooks
+pre-commit = "^3.3.0"
+
+# ============ Tool Configurations ============
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["core", "api", "scrapers", "utils"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=.",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.pylint.main]
+py-version = "3.8"
+ignore = ["tests", ".venv"]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 80
 
 [build-system]
 requires = ["poetry-core"]

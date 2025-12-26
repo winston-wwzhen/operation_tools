@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'poetry'
+        cache-dependency-path: HotSpotAI/poetry.lock
+
+    - name: Install dependencies
+      run: |
+        cd HotSpotAI
+        poetry install --with dev
+
+    - name: Run Black check
+      run: |
+        cd HotSpotAI
+        poetry run black --check .
+
+    - name: Run isort check
+      run: |
+        cd HotSpotAI
+        poetry run isort --check-only .
+
+    - name: Run flake8
+      run: |
+        cd HotSpotAI
+        poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+
+    - name: Run mypy
+      run: |
+        cd HotSpotAI
+        poetry run mypy core/ --ignore-missing-imports || true
+
+    - name: Run bandit security check
+      run: |
+        cd HotSpotAI
+        poetry run bandit -r core/ api/ scrapers/ -f json -o bandit-report.json || true
+
+    - name: Run pytest
+      run: |
+        cd HotSpotAI
+        poetry run pytest tests/ -v --cov=. --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: HotSpotAI/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run linter
+      run: |
+        cd frontend
+        npm run lint || true
+
+    - name: Run type check
+      run: |
+        cd frontend
+        npm run type-check || true
+
+    - name: Build
+      run: |
+        cd frontend
+        npm run build
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Run safety check
+      run: |
+        cd HotSpotAI
+        poetry run safety check --full-report || true

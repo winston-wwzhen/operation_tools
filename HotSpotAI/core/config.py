@@ -7,11 +7,8 @@ from typing import Any, Dict, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 日志函数从 logger 模块导入（避免循环导入）
-def add_log(level: str, message: str):
-    """临时占位函数，实际从 logger 模块导入"""
-    from .logger import add_log as _add_log
-    return _add_log(level, message)
+# 从 log_utils 导入日志函数（避免循环导入）
+from .log_utils import add_log_to_buffer as add_log, get_log_buffer, LOG_LIMIT
 
 
 # ============ 环境变量配置类 ============
@@ -115,13 +112,11 @@ def reload_settings() -> Settings:
 
 # ============ 运行时状态管理 ============
 
-LOG_LIMIT = 100
-
 runtime_state = {
     "isRunning": False,
     "lastRunTime": None,
     "nextRunTime": None,
-    "logs": [],
+    "logs": get_log_buffer(),  # 使用 log_utils 的共享缓冲区
     "hot_topics": []
 }
 

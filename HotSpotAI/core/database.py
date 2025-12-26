@@ -1,12 +1,13 @@
 """
 异步数据库管理模块
-使用 aiosqlite 实现非阻塞的数据库操作
+使用连接池提供非阻塞的数据库操作
 """
 import aiosqlite
 import json
 from datetime import datetime
 from typing import List, Dict, Optional
 from core.config import add_log
+from core.db_pool import get_db
 
 DB_FILE = "data.db"
 
@@ -14,7 +15,7 @@ DB_FILE = "data.db"
 async def init_db():
     """初始化数据库表结构（异步）"""
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 热点话题表 - 精选后的最终热点
             await db.execute('''
                 CREATE TABLE IF NOT EXISTS hot_topics (
@@ -342,7 +343,7 @@ async def save_topics_to_db(topics: List[Dict]) -> int:
         return 0
 
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             count = 0
 
@@ -389,8 +390,7 @@ async def load_latest_topics_from_db(limit: int = 50) -> List[Dict]:
     """
     topics = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
 
             # 查最近的时间点
             async with db.execute(
@@ -441,8 +441,7 @@ async def get_topics_by_source(source: str, limit: int = 20) -> List[Dict]:
     """
     topics = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
 
             async with db.execute('''
                 SELECT * FROM hot_topics
@@ -479,7 +478,7 @@ async def clean_old_topics(days: int = 7) -> int:
         删除的记录数
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             cursor = await db.execute('''
                 DELETE FROM hot_topics
                 WHERE created_at < datetime('now', '-' || ? || ' days')
@@ -511,8 +510,7 @@ async def get_stats() -> Dict:
     }
 
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             # 总数统计
             async with db.execute("SELECT COUNT(*) as count FROM hot_topics") as cursor:
                 row = await cursor.fetchone()
@@ -572,8 +570,7 @@ async def get_historical_topics(
     total = 0
 
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
 
             # 构建 WHERE 条件
             where_conditions = []
@@ -645,8 +642,7 @@ async def get_distinct_dates() -> List[str]:
     """
     dates = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
             async with db.execute('''
                 SELECT DISTINCT DATE(created_at) as date
                 FROM hot_topics
@@ -761,8 +757,8 @@ async def get_categories(include_inactive: bool = False) -> List[Dict]:
     """
     categories = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
 
             where_clause = "" if include_inactive else "WHERE is_active = 1"
 
@@ -805,8 +801,8 @@ async def get_category_by_id(category_id: int) -> Optional[Dict]:
         分类详情，包含关键词列表和平台配置
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
 
             # 获取分类基本信息
             async with db.execute('''
@@ -877,8 +873,8 @@ async def get_categories_with_keywords() -> List[Dict]:
     """
     categories = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
 
             async with db.execute('''
                 SELECT id, name, slug, is_active
@@ -925,7 +921,7 @@ async def create_category(data: Dict) -> int:
         新创建的分类ID
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 插入分类
             await db.execute('''
                 INSERT INTO categories (name, slug, description, icon, color, is_active, sort_order)
@@ -982,7 +978,7 @@ async def update_category(category_id: int, data: Dict) -> bool:
         是否成功
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 构建更新SQL
             update_fields = []
             update_values = []
@@ -1020,7 +1016,7 @@ async def delete_category(category_id: int) -> bool:
         是否成功
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 删除关键词（级联删除）
             await db.execute('DELETE FROM category_keywords WHERE category_id = ?', (category_id,))
 
@@ -1051,7 +1047,7 @@ async def update_category_keywords(category_id: int, keywords: List[str]) -> boo
         是否成功
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 删除旧关键词
             await db.execute('DELETE FROM category_keywords WHERE category_id = ?', (category_id,))
 
@@ -1083,7 +1079,7 @@ async def update_category_platforms(category_id: int, platforms: List[str]) -> b
         是否成功
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 删除旧配置
             await db.execute('DELETE FROM category_platforms WHERE category_id = ?', (category_id,))
 
@@ -1114,8 +1110,8 @@ async def get_category_platforms(category_id: int) -> List[Dict]:
     """
     platforms = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
             async with db.execute('''
                 SELECT platform, is_enabled FROM category_platforms
                 WHERE category_id = ?
@@ -1137,13 +1133,13 @@ async def init_default_categories() -> int:
         创建的分类数量
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             created_count = 0
             default_platforms = ['weibo', 'zhihu', 'douyin', 'xiaohongshu', 'toutiao']
 
             for cat_data in DEFAULT_CATEGORIES:
                 # 检查是否已存在
-                db.row_factory = aiosqlite.Row
+                
                 async with db.execute(
                     "SELECT id FROM categories WHERE slug = ?",
                     (cat_data['slug'],)
@@ -1233,8 +1229,8 @@ async def get_topics_by_category(
     total = 0
 
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
 
             # 构建 WHERE 条件
             where_conditions = []
@@ -1318,7 +1314,7 @@ async def save_raw_news_to_db(news_list: List[Dict], category_id: int = None) ->
     """
     count = 0
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             for news in news_list:
                 try:
                     await db.execute('''
@@ -1358,8 +1354,8 @@ async def get_unanalyzed_news(limit: int = 50, max_fail_count: int = 3) -> List[
     """
     news_list = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
             async with db.execute('''
                 SELECT * FROM raw_news
                 WHERE analyzed = 0
@@ -1403,7 +1399,7 @@ async def update_news_analysis(news_id: int, ai_score: float, ai_comment: str,
         是否更新成功
     """
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             if analyzed:
                 await db.execute('''
                     UPDATE raw_news
@@ -1447,8 +1443,8 @@ async def get_top_scoring_news(hours: int = 48, limit: int = 50,
     """
     news_list = []
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
-            db.row_factory = aiosqlite.Row
+        async with get_db() as db:
+            
             async with db.execute('''
                 SELECT id, title, link, source,
                        ai_score, ai_comment, category_id, created_at
@@ -1492,7 +1488,7 @@ async def save_hot_topics(topics: List[Dict]) -> int:
     """
     count = 0
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             # 清空旧的 hot_topics
             await db.execute('DELETE FROM hot_topics')
 
@@ -1537,7 +1533,7 @@ async def get_raw_news_stats() -> Dict:
         'avg_score': 0.0
     }
     try:
-        async with aiosqlite.connect(DB_FILE) as db:
+        async with get_db() as db:
             async with db.execute('SELECT COUNT(*) as count FROM raw_news') as cursor:
                 stats['total'] = (await cursor.fetchone())['count']
 

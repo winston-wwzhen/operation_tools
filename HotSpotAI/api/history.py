@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query
 from typing import Optional
 from pydantic import BaseModel
 
-from core.database import get_historical_topics, get_distinct_dates, get_stats
+from db import get_historical_topics, get_distinct_dates, get_stats
 
 router = APIRouter(tags=["history"])
 

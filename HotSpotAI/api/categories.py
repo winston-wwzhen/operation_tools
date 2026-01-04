@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from core.auth import get_current_user
-from core.database import (
+from db import (
     get_categories,
     get_category_by_id,
     get_categories_with_keywords,

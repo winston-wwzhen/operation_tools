@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright
 from .base import PlaywrightScraper
 from .factory import register_scraper
 from utils import browser_retry
-from core.config import add_log, get_config
+from core.config import add_log
 
 
 @register_scraper("zhihu")
@@ -16,9 +16,6 @@ class ZhihuScraper(PlaywrightScraper):
 
     def get_platform_name(self) -> str:
         return "知乎"
-
-    def get_headless(self) -> bool:
-        return get_config("playwright_headless", True)
 
     @browser_retry
     async def scrape(self, limit: int = 10) -> list:

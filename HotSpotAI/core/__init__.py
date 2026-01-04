@@ -12,7 +12,7 @@ from .config import (
     LOG_LIMIT,
 )
 
-from .database import (
+from db import (
     init_db,
     save_topics_to_db,
     load_latest_topics_from_db,

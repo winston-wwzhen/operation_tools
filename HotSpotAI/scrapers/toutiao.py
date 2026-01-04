@@ -7,7 +7,6 @@ from playwright.async_api import async_playwright
 from .base import PlaywrightScraper
 from .factory import register_scraper
 from utils import browser_retry
-from core.config import get_config
 
 
 @register_scraper("toutiao")
@@ -16,9 +15,6 @@ class ToutiaoScraper(PlaywrightScraper):
 
     def get_platform_name(self) -> str:
         return "今日头条"
-
-    def get_headless(self) -> bool:
-        return get_config("playwright_headless", True)
 
     @browser_retry
     async def scrape(self, limit: int = 10) -> list:

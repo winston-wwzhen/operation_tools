@@ -138,6 +138,10 @@ class HTTPScraper(BaseScraper):
 class PlaywrightScraper(BaseScraper):
     """Playwright 爬虫基类 (适用于需要渲染 JS 的爬虫)"""
 
+    def get_headless(self) -> bool:
+        """获取浏览器无头模式配置"""
+        return get_config("playwright_headless", True)
+
     async def fetch(self, url: str) -> str:
         """
         使用 Playwright 获取页面内容

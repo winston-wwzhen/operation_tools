@@ -5,7 +5,7 @@
 """
 from typing import List, Optional, Dict, Any
 from abc import ABC, abstractmethod
-from core.database import (
+from db import (
     get_categories,
     get_categories_with_keywords,
     get_category_by_id,

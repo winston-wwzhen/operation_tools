@@ -9,7 +9,7 @@ import asyncio
 from datetime import datetime
 from typing import List, Dict
 from core.config import add_log
-from core.database import (
+from db import (
     save_raw_news_to_db,
     get_unanalyzed_news,
     update_news_analysis,
